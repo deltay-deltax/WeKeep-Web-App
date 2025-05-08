@@ -1,0 +1,36 @@
+// src/testdata/WarrantyDetails.js
+
+const warrantyDetails = [
+  {
+    id: "1",
+    modelName: "Dell Inspiron 15",
+    modelNumber: "DELL12345",
+    purchaseDate: "2023-01-15",
+    company: "Dell",
+    receipt: "receipt_dell.jpg",
+    warrantyPeriod: "2 years",
+    warrantyStatus: "Active",
+  },
+  {
+    id: "2",
+    modelName: "HP Pavilion 14",
+    modelNumber: "HP67890",
+    purchaseDate: "2022-07-20",
+    company: "HP",
+    receipt: "receipt_hp.jpg",
+    warrantyPeriod: "1 year",
+    warrantyStatus: "Expired",
+  },
+  {
+    id: "3",
+    modelName: "Apple MacBook Pro",
+    modelNumber: "APPLE13579",
+    purchaseDate: "2023-06-10",
+    company: "Apple",
+    receipt: "receipt_apple.jpg",
+    warrantyPeriod: "3 years",
+    warrantyStatus: "Active",
+  },
+];
+
+export default warrantyDetails;

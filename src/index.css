@@ -1,0 +1,5 @@
+/* To add the tailwind configurations to the react app */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
