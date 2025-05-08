@@ -67,12 +67,6 @@ node src/backend/Express.js
 npm start
 ---
 
-## 🛠️ Notification Automation
-
-- The backend **automatically checks for expiring warranties daily at 9 AM** (server time) and sends notifications.
-- For testing, a notification check runs 10 seconds after server start.
-
----
 
 ## 📲 Tech Stack
 
