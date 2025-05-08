@@ -63,8 +63,8 @@ mongod-<br> If using MongoDB Atlas,<br> ensure your URI is set in `src/backend/D
 node src/backend/Express.js
 ### 6. **Access the Frontend**
 
-- Open your frontend (React/Next.js) as per your setup.
-
+- Open your frontend (React/Next.js) as per your setup. <br>
+npm start
 ---
 
 ## 🛠️ Notification Automation
