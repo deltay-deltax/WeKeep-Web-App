@@ -1,13 +1,8 @@
 const mongoose = require("mongoose");
-
-const uri =
-  "mongodb+srv://arunfrancistellis8:YBJ8KoGLIymLBq3W@wekeepcluster.pycucwp.mongodb.net/?retryWrites=true&w=majority&appName=WeKeepCluster";
 mongoose
-  .connect(uri)
-  .then(() => {
-    console.log("mongodb connected");
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
   })
-  .catch((err) => {
-    console.log("failed");
-    console.log(err);
-  });
+  .then(() => console.log("MongoDB Atlas connected"))
+  .catch((err) => console.error("MongoDB connection error:", err));
