@@ -1,44 +1,36 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
 
-const ViewServiceHistory = () => {
+const ServiceHistoryViewer = () => {
   const [modelNumber, setModelNumber] = useState("");
   const [history, setHistory] = useState(null);
-  const [searched, setSearched] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [paymentDone, setPaymentDone] = useState(false);
+  const [error, setError] = useState("");
+  const { token } = useAuth();
 
-  const navigate = useNavigate();
-
-  const handleSearch = async () => {
+  const fetchHistory = async () => {
     if (!modelNumber) return;
-
-    setSearched(true);
-    setHistory(null);
-    setError("");
     setLoading(true);
-
+    setError("");
     try {
-      // Use the same endpoint as the service person side
       const response = await axios.get(
-        `http://localhost:3000/api/service-history-full/${modelNumber}`
+        `http://localhost:3000/api/service-history-full/${modelNumber}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
+
       setHistory(response.data);
-      if (!response.data.problems.length && !response.data.updates.length) {
-        setError(`No service history found for model number: ${modelNumber}`);
-      }
     } catch (error) {
-      console.error("Error fetching service history", error);
-      setError(`Error fetching service history. Please try again later.`);
+      console.error("Error fetching service history:", error);
+      setError("Failed to fetch service history");
+      setHistory(null);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handlePaymentRedirect = () => {
-    navigate("/payment", { state: { fromServicePage: true } });
   };
 
   return (
@@ -60,8 +52,8 @@ const ViewServiceHistory = () => {
                 placeholder="Enter model number"
               />
               <button
-                onClick={handleSearch}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r"
+                onClick={fetchHistory}
+                className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-r"
               >
                 Search
               </button>
@@ -70,7 +62,7 @@ const ViewServiceHistory = () => {
 
           {loading && (
             <div className="text-center py-4">
-              <div className="spinner-border text-blue-500" role="status">
+              <div className="spinner-border text-purple-500" role="status">
                 <span className="sr-only">Loading...</span>
               </div>
             </div>
@@ -151,25 +143,6 @@ const ViewServiceHistory = () => {
                   ))}
                 </div>
               )}
-
-              {/* Payment Button */}
-              {!paymentDone && history.updates.length > 0 && (
-                <div className="mt-6 text-center">
-                  <button
-                    onClick={handlePaymentRedirect}
-                    className="px-6 py-3 bg-green-500 text-white rounded hover:bg-green-600"
-                  >
-                    Proceed to Payment
-                  </button>
-                </div>
-              )}
-
-              {/* Payment Confirmation Message */}
-              {paymentDone && (
-                <p className="mt-4 text-green-600 font-semibold text-center">
-                  ✅ Payment confirmed. Thank you for your payment!
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -178,4 +151,4 @@ const ViewServiceHistory = () => {
   );
 };
 
-export default ViewServiceHistory;
+export default ServiceHistoryViewer;

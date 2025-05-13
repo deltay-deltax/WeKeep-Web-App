@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const userSchema = mongoose.Schema({
@@ -18,6 +17,25 @@ const userSchema = mongoose.Schema({
   role: {
     type: String,
     default: "user",
+  },
+  // Additional fields for service person
+  shopName: {
+    type: String,
+    required: function () {
+      return this.role === "service";
+    },
+  },
+  address: {
+    type: String,
+    required: function () {
+      return this.role === "service";
+    },
+  },
+  gstNo: {
+    type: String,
+    required: function () {
+      return this.role === "service";
+    },
   },
 });
 

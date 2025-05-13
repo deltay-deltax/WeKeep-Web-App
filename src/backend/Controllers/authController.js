@@ -4,10 +4,11 @@ const createError = require("../../Utils/AppErrors");
 const jwt = require("jsonwebtoken");
 
 // Sign Up User
+// SignUp function update
 exports.SignUp = async (req, res, next) => {
   try {
     console.log(req.body);
-    const { email, password, name } = req.body;
+    const { email, password, name, role, shopName, address, gstNo } = req.body;
 
     // check whether the user is already present or not
     const user = await User.findOne({ email });
@@ -15,11 +16,27 @@ exports.SignUp = async (req, res, next) => {
     if (user) {
       return next(new createError("User Already Existing"));
     }
+
     // If not then encrypt the passwords using bcrypt
     const hashPassword = await bcrypt.hash(password, 10);
 
+    // Create user object based on role
+    const userData = {
+      email,
+      password: hashPassword,
+      name,
+      role: role || "user", // Default to user if not specified
+    };
+
+    // Add service person fields if role is service
+    if (role === "service") {
+      userData.shopName = shopName;
+      userData.address = address;
+      userData.gstNo = gstNo;
+    }
+
     // Create the newUser
-    const newUser = await User.create({ email, password: hashPassword, name });
+    const newUser = await User.create(userData);
 
     // Assigning the JSON Web Token to the User for the authentication
     const token = jwt.sign({ _id: newUser._id }, "seckretKey213", {
@@ -31,13 +48,16 @@ exports.SignUp = async (req, res, next) => {
       success: true,
       token,
       message: "Signed Up Successfully",
-      user: newUser,
-      // Then send the data to the database
       user: {
         _id: newUser._id,
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
+        ...(newUser.role === "service" && {
+          shopName: newUser.shopName,
+          address: newUser.address,
+          gstNo: newUser.gstNo,
+        }),
       },
     });
   } catch (error) {
@@ -45,7 +65,6 @@ exports.SignUp = async (req, res, next) => {
     next(error);
   }
 };
-
 // Login User
 exports.Login = async (req, res, next) => {
   try {

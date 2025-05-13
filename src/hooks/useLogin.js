@@ -1,38 +1,35 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
-import { message } from "antd";
 
-// This hook will handle the login work
 const useLogin = () => {
-  const { login } = useAuth();
-
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const loginUser = async (values) => {
+  const loginUser = async (userData) => {
+    setLoading(true);
+    setError(null);
+
     try {
-      setError(null);
-      setLoading(true);
-      const result = await fetch("http://localhost:3000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-      });
+      const response = await axios.post(
+        "http://localhost:3000/api/auth/login",
+        userData
+      );
+      login(response.data.token, response.data.user);
 
-      const data = await result.json();
-      if (result.status === 200) {
-        message.success(data.message);
-        login(data.token, data.user);
-      } else if (result.status === 404) {
-        setError(data.message);
+      // Redirect based on role
+      if (response.data.user.role === "service") {
+        navigate("/service-home");
       } else {
-        message.error("Login Failed");
+        navigate("/uhomepage");
       }
     } catch (error) {
-      setError(error.message);
-      message.error(error.message);
+      setError(
+        error.response?.data?.message || "Login failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
