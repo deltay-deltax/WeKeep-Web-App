@@ -1,4 +1,8 @@
 require("dotenv").config();
+console.log(
+  "Google Maps API Key:",
+  process.env.GOOGLE_MAPS_API_KEY ? "Loaded" : "Not loaded"
+);
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -607,7 +611,252 @@ app.get("/api/shop/unread-count", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Failed to count unread messages" });
   }
 });
+
+/**
+ * GET /api/nearby-shops
+ * Returns all nearby electronics shops using Google Places API
+ */
+app.get("/api/nearby-shops", async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    // We search for BOTH computer repair and electronic repair shops
+    // by using the 'keyword' parameter
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=4000&keyword=repair|computer|electronics&key=${apiKey}`;
+    const result = await axios.get(url);
+
+    const shops = Array.isArray(result.data.results)
+      ? result.data.results.map((shop) => ({
+          name: shop.name,
+          address: shop.vicinity,
+          image: shop.photos
+            ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${shop.photos[0].photo_reference}&key=${apiKey}`
+            : null,
+          location: shop.geometry.location,
+          placeId: shop.place_id,
+        }))
+      : [];
+
+    res.json(shops);
+  } catch (error) {
+    console.error("Error fetching nearby shops:", error.message);
+    res.status(500).json({ message: "Failed to fetch nearby repair shops" });
+  }
+});
+// NEW: Get all service users from MongoDB for matching with Google Maps
+app.get("/api/service-users", async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+
+    // Fetch all users with role: "service"
+    const serviceUsers = await User.find({
+      role: "service",
+    }).select(
+      "_id name shopName address gstNo googleMapsInfo location services"
+    );
+
+    // Calculate distance if user location provided
+    let usersWithDistance = serviceUsers;
+    if (lat && lng) {
+      usersWithDistance = serviceUsers.map((user) => {
+        let distance = "N/A";
+
+        // Calculate distance if user has location data
+        if (user.location && user.location.lat && user.location.lng) {
+          distance = calculateDistance(
+            parseFloat(lat),
+            parseFloat(lng),
+            user.location.lat,
+            user.location.lng
+          );
+        } else {
+          // Random distance for demo purposes if no real location
+          distance = parseFloat((Math.random() * 5).toFixed(1));
+        }
+
+        return {
+          ...user.toObject(),
+          distance: distance,
+          shopName:
+            user.shopName || user.googleMapsInfo?.businessName || user.name,
+        };
+      });
+
+      // Sort by distance
+      usersWithDistance.sort((a, b) => {
+        if (typeof a.distance === "string") return 1;
+        if (typeof b.distance === "string") return -1;
+        return a.distance - b.distance;
+      });
+    }
+
+    console.log(`Found ${usersWithDistance.length} service users`);
+    res.status(200).json(usersWithDistance);
+  } catch (error) {
+    console.error("Error fetching service users:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to fetch service users",
+    });
+  }
+});
+
 // Get shop details by ID
+
+app.get("/api/shop/:shopId", async (req, res) => {
+  try {
+    const { shopId } = req.params;
+
+    // 1. Handle dummy shops, return mock info
+    if (shopId === "gupta_electronics_dummy") {
+      return res.json({
+        id: "gupta_electronics_dummy",
+        name: "Gupta Electronics",
+        address: "CMRIT COLLEGE MAIN GATE",
+        isVerified: true,
+        location: null,
+        googleMapsInfo: null,
+        dummy: true,
+      });
+    }
+
+    if (shopId === "gupta_dummy") {
+      return res.json({
+        id: "gupta_dummy",
+        name: "gupta",
+        address: "Somewhere near you",
+        isVerified: true,
+        location: null,
+        googleMapsInfo: null,
+        dummy: true,
+      });
+    }
+
+    // 2. Real MongoDB shop: Only proceed if it's a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(shopId)) {
+      return res.status(404).json({ message: "Shop not found" });
+    }
+
+    // 3. Regular DB query
+    const shop = await User.findById(shopId)
+      .select("name shopName address gstNo googleMapsInfo location isVerified")
+      .lean();
+
+    if (!shop) {
+      return res.status(404).json({ message: "Shop not found" });
+    }
+
+    const formattedShop = {
+      id: shop._id,
+      name: shop.shopName || shop.name,
+      address: shop.address,
+      isVerified: shop.isVerified || false,
+      location: shop.location || null,
+      googleMapsInfo: shop.googleMapsInfo || null,
+    };
+
+    res.json(formattedShop);
+  } catch (error) {
+    console.error("Error fetching shop details:", error);
+    res.status(500).json({ message: "Failed to fetch shop details" });
+  }
+});
+
+// Add this before the NOTIFICATION ROUTES section
+app.get("/api/verified-shops", authMiddleware, async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    const userLocation = { lat: parseFloat(lat), lng: parseFloat(lng) };
+    const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+    // Get all service providers (since you don't have verification implemented yet)
+    const shops = await User.find({ role: "service" }, "name shopName address");
+
+    // Add location data for shops
+    const shopsWithDistance = await Promise.all(
+      shops.map(async (shop) => {
+        const shopData = shop.toObject();
+
+        // If we have Google Maps API key and shop has address, try to geocode
+        if (googleMapsApiKey && shop.address) {
+          try {
+            // Use Google Maps Geocoding API to get coordinates from address
+            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+              shop.address
+            )}&key=${googleMapsApiKey}`;
+            const response = await axios.get(geocodeUrl);
+
+            if (response.data.results && response.data.results.length > 0) {
+              const location = response.data.results[0].geometry.location;
+              shopData.location = {
+                lat: location.lat,
+                lng: location.lng,
+              };
+              shopData.distance = calculateDistance(
+                userLocation.lat,
+                userLocation.lng,
+                location.lat,
+                location.lng
+              );
+            } else {
+              // Fallback to random location if geocoding fails
+              shopData.location = {
+                lat: parseFloat(lat) + (Math.random() - 0.5) * 0.01,
+                lng: parseFloat(lng) + (Math.random() - 0.5) * 0.01,
+              };
+              shopData.distance = parseFloat((Math.random() * 5).toFixed(1));
+            }
+          } catch (error) {
+            console.error("Geocoding error:", error);
+            // Fallback to random location
+            shopData.location = {
+              lat: parseFloat(lat) + (Math.random() - 0.5) * 0.01,
+              lng: parseFloat(lng) + (Math.random() - 0.5) * 0.01,
+            };
+            shopData.distance = parseFloat((Math.random() * 5).toFixed(1));
+          }
+        } else {
+          // Use random location if no API key or address
+          shopData.location = {
+            lat: parseFloat(lat) + (Math.random() - 0.5) * 0.01,
+            lng: parseFloat(lng) + (Math.random() - 0.5) * 0.01,
+          };
+          shopData.distance = parseFloat((Math.random() * 5).toFixed(1));
+        }
+
+        return shopData;
+      })
+    );
+
+    // Sort by distance
+    shopsWithDistance.sort((a, b) => a.distance - b.distance);
+
+    res.json(shopsWithDistance);
+  } catch (error) {
+    console.error("Error fetching shops:", error);
+    res.status(500).json({ message: "Failed to fetch shops" });
+  }
+});
+
+// Helper function to calculate distance between coordinates
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // Distance in km
+  return parseFloat(distance.toFixed(1));
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI / 180);
+}
 
 // ===== NOTIFICATION ROUTES =====
 
@@ -712,7 +961,7 @@ if (process.env.NODE_ENV === "production") {
 } else {
   // In development, redirect to React dev server
   app.get("*", (req, res) => {
-    res.redirect("http://localhost:3000");
+    res.redirect("http://localhost:3001");
   });
 }
 

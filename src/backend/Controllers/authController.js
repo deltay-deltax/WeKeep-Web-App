@@ -4,7 +4,6 @@ const createError = require("../../Utils/AppErrors");
 const jwt = require("jsonwebtoken");
 
 // Sign Up User
-// SignUp function update
 exports.SignUp = async (req, res, next) => {
   try {
     console.log(req.body);
@@ -33,6 +32,9 @@ exports.SignUp = async (req, res, next) => {
       userData.shopName = shopName;
       userData.address = address;
       userData.gstNo = gstNo;
+      userData.googleMapsInfo = {
+        businessName: shopName || name, // Use shopName or fallback to name
+      };
     }
 
     // Create the newUser
@@ -65,20 +67,24 @@ exports.SignUp = async (req, res, next) => {
     next(error);
   }
 };
+
 // Login User
 exports.Login = async (req, res, next) => {
   try {
     console.log(req.body);
     const { email, password } = req.body;
     const user = await User.findOne({ email });
+
     if (!user) {
       return next(new createError("User not Found", 404));
     }
+
     const isPassword = await bcrypt.compare(password, user.password);
 
     if (!isPassword) {
       return next(new createError("Invalid UserName or Password", 401));
     }
+
     const token = jwt.sign({ _id: user._id }, "seckretKey213", {
       expiresIn: "100d",
     });
@@ -92,6 +98,11 @@ exports.Login = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        ...(user.role === "service" && {
+          shopName: user.shopName,
+          address: user.address,
+          gstNo: user.gstNo,
+        }),
       },
     });
   } catch (error) {

@@ -1,57 +1,46 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-// This component is used for the authentication
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(null); // For the jwt tokens
-  const [userData, setUserData] = useState(null); // to store all the user data
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // authenticated or not
+  const [token, setToken] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true); // NEW: Add loading state
 
-  // to store the data
   useEffect(() => {
-    const storedData = JSON.parse(localStorage.getItem("user_data")); //store the data in the localStorage
-    if (storedData) {
-      const { userToken, user } = storedData; //take the token and user information
-      setToken(userToken); //set the token
-      setUserData(user); //set the user data
-      setIsAuthenticated(true); //make the user authenticated
-    }
+    const initializeAuth = async () => {
+      try {
+        const storedData = JSON.parse(localStorage.getItem("user_data"));
+        if (storedData) {
+          const { userToken, user } = storedData;
+          setToken(userToken);
+          setUserData(user);
+          setIsAuthenticated(true);
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        setLoading(false); // Always set loading to false
+      }
+    };
+
+    initializeAuth();
   }, []);
 
-  // const login = (newToken, newData) => {
-  //   //  store the userData to the localStorage
-  //   localStorage.setItem(
-  //     "user_data",
-  //     JSON.stringify({ userToken: newToken, user: newData })
-  //   );
-  //   console.log("sn" + { ...newData });
-  //   setToken(newToken);
-  //   setUserData(newData);
-  //   setIsAuthenticated(true);
-  // };
-
   const login = (newToken, newData) => {
-    // Log the entire newData object to check its structure
-    console.log("New Data:", newData);
+    console.log("Login data:", newData);
 
-    // Destructure properties from newData
-    const { name, email, role } = newData;
-
-    // Store the userData to the localStorage
     localStorage.setItem(
       "user_data",
       JSON.stringify({ userToken: newToken, user: newData })
     );
-
-    console.log("sn", name, email, role); // example of using destructured variables
 
     setToken(newToken);
     setUserData(newData);
     setIsAuthenticated(true);
   };
 
-  // During logout remove the item from the localStorage
   const logout = () => {
     localStorage.removeItem("user_data");
     setToken(null);
@@ -61,7 +50,14 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ token, isAuthenticated, login, logout, userData }}
+      value={{
+        token,
+        isAuthenticated,
+        login,
+        logout,
+        userData,
+        loading, // NEW: Export loading state
+      }}
     >
       {children}
     </AuthContext.Provider>

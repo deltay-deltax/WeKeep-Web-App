@@ -1,19 +1,39 @@
-import { Card, Typography, Form, Input, Button, Spin, Alert } from "antd";
-import React from "react";
+import {
+  Card,
+  Typography,
+  Form,
+  Input,
+  Button,
+  Spin,
+  Alert,
+  Tooltip,
+} from "antd";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import Lottie from "lottie-react";
 import animationData from "../Utils/AnimationData.json";
 import useSignup from "../hooks/useSignup";
+import { InfoCircleOutlined } from "@ant-design/icons";
 
 const ServiceSignUpPage = () => {
   const { loading, error, registerServicePerson } = useSignup();
+  const [form] = Form.useForm();
 
   const handleSubmit = (values) => {
-    // Add role to the values
+    // Add role to the values and format Google Maps info
     const serviceData = {
       ...values,
       role: "service",
+      googleMapsInfo: {
+        businessName: values.googleBusinessName,
+        placeId: values.googlePlaceId,
+      },
     };
+
+    // Remove the individual fields that were moved to the googleMapsInfo object
+    delete serviceData.googleBusinessName;
+    delete serviceData.googlePlaceId;
+
     registerServicePerson(serviceData);
   };
 
@@ -27,6 +47,7 @@ const ServiceSignUpPage = () => {
           </Typography.Title>
 
           <Form
+            form={form}
             layout="vertical"
             onFinish={handleSubmit}
             autoComplete="off"
@@ -101,11 +122,57 @@ const ServiceSignUpPage = () => {
               />
             </Form.Item>
 
+            {/* Google Maps Information Section */}
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <Typography.Title level={5} className="mb-3">
+                Google Maps Information
+                <Tooltip title="This information helps customers find your shop on the map">
+                  <InfoCircleOutlined className="ml-2 text-blue-500" />
+                </Tooltip>
+              </Typography.Title>
+
+              <Form.Item
+                label="Google Business Name (exactly as it appears on Google Maps)"
+                name="googleBusinessName"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please enter your Google Maps business name",
+                  },
+                ]}
+                className="mb-4"
+              >
+                <Input
+                  placeholder="e.g., Sharma Electronics"
+                  size="large"
+                  className="rounded-lg"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Google Place ID (optional)"
+                name="googlePlaceId"
+                tooltip="You can find your Place ID by searching for your business on Google Maps, right-clicking on your listing, and selecting 'Share' then 'Copy place ID'"
+                className="mb-0"
+              >
+                <Input
+                  placeholder="e.g., ChIJN1t_tDeuEmsRUsoyG83frY4"
+                  size="large"
+                  className="rounded-lg"
+                />
+              </Form.Item>
+              <div className="text-xs text-gray-500 mt-1">
+                Your shop will need to be verified by our team before appearing
+                in search results
+              </div>
+            </div>
+
             <Form.Item
               label="Password"
               name="password"
               rules={[
                 { required: true, message: "Please enter your password" },
+                { min: 6, message: "Password must be at least 6 characters" },
               ]}
               className="mb-4"
             >
@@ -119,8 +186,19 @@ const ServiceSignUpPage = () => {
             <Form.Item
               label="Confirm Password"
               name="passwordConfirmation"
+              dependencies={["password"]}
               rules={[
                 { required: true, message: "Please confirm your password" },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue("password") === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(
+                      new Error("The two passwords do not match")
+                    );
+                  },
+                }),
               ]}
               className="mb-4"
             >
@@ -137,7 +215,7 @@ const ServiceSignUpPage = () => {
                 type="error"
                 showIcon
                 closable
-                className="alert"
+                className="alert mb-4"
               />
             )}
 

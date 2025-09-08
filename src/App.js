@@ -30,20 +30,16 @@ import ShopDashboard from "./ServicePerson/ShopDashboard";
 import Notifications from "./ApplicationUsers/Notifications";
 
 function App() {
-  const { isAuthenticated, userData } = useAuth();
+  const { isAuthenticated, userData, loading } = useAuth(); // Add loading
 
-  // Helper function to redirect based on user role
-  const redirectBasedOnRole = () => {
-    if (!isAuthenticated) return <Navigate to="/login" replace />;
-
-    if (userData?.role === "user") {
-      return <Navigate to="/uhomepage" replace />;
-    } else if (userData?.role === "service") {
-      return <Navigate to="/service-home" replace />;
-    } else {
-      return <RoleSelectionPage />;
-    }
-  };
+  // Show loading spinner while auth is resolving
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen font-sans text-gray-900">
@@ -56,71 +52,87 @@ function App() {
             <Route
               path="/"
               element={
-                !isAuthenticated ? <LandingPage /> : redirectBasedOnRole()
+                !isAuthenticated ? (
+                  <LandingPage />
+                ) : userData?.role === "user" ? (
+                  <Navigate to="/uhomepage" replace />
+                ) : userData?.role === "service" ? (
+                  <Navigate to="/service-home" replace />
+                ) : (
+                  <RoleSelectionPage />
+                )
               }
             />
+
+            {/* Auth routes */}
             <Route
               path="/register"
               element={
                 !isAuthenticated ? (
                   <RegisterRoleSelection />
                 ) : (
-                  redirectBasedOnRole()
+                  <Navigate to="/" replace />
                 )
               }
             />
             <Route
               path="/register/user"
               element={
-                !isAuthenticated ? <SignUpPage /> : redirectBasedOnRole()
+                !isAuthenticated ? <SignUpPage /> : <Navigate to="/" replace />
               }
             />
             <Route
               path="/register/service"
               element={
-                !isAuthenticated ? <ServiceSignUpPage /> : redirectBasedOnRole()
+                !isAuthenticated ? (
+                  <ServiceSignUpPage />
+                ) : (
+                  <Navigate to="/" replace />
+                )
               }
             />
             <Route
               path="/login"
-              element={!isAuthenticated ? <Login /> : redirectBasedOnRole()}
+              element={
+                !isAuthenticated ? <Login /> : <Navigate to="/" replace />
+              }
             />
-            {/* Role selection after login - only show if user has no role */}
+
+            {/* FIXED: Shop routes - Available to ALL authenticated users */}
             <Route
-              path="/role"
+              path="/shops"
               element={
                 isAuthenticated ? (
-                  userData?.role ? (
-                    redirectBasedOnRole()
-                  ) : (
-                    <RoleSelectionPage />
-                  )
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              }
-            />
-            {/* User routes */}
-            <Route
-              path="/uhomepage"
-              element={
-                isAuthenticated && userData?.role === "user" ? (
-                  <UserHomePage />
+                  <ElectronicsShops />
                 ) : (
                   <Navigate to="/login" replace />
                 )
               }
             />
             <Route
-              path="/add-warranty"
+              path="/shop/:id"
               element={
-                isAuthenticated && userData?.role === "user" ? (
-                  <AddingWarrantyUser />
+                isAuthenticated ? (
+                  <ShopDetails />
                 ) : (
                   <Navigate to="/login" replace />
                 )
               }
             />
+
+            {/* FIXED: Chat route - Available to ALL authenticated users */}
+            <Route
+              path="/shop/conversation/:shopId/:userId"
+              element={
+                isAuthenticated ? (
+                  <ShopConversation />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+
+            {/* Common authenticated routes */}
             <Route
               path="/warranty-details/:id"
               element={
@@ -152,6 +164,16 @@ function App() {
               }
             />
             <Route
+              path="/notifications"
+              element={
+                isAuthenticated ? (
+                  <Notifications />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
               path="/profile"
               element={
                 isAuthenticated ? (
@@ -161,26 +183,45 @@ function App() {
                 )
               }
             />
+
+            {/* Role selection after login */}
             <Route
-              path="/shops"
+              path="/role"
               element={
                 isAuthenticated ? (
-                  <ElectronicsShops />
+                  userData?.role ? (
+                    <Navigate to="/" replace />
+                  ) : (
+                    <RoleSelectionPage />
+                  )
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+
+            {/* User routes */}
+            <Route
+              path="/uhomepage"
+              element={
+                isAuthenticated && userData?.role === "user" ? (
+                  <UserHomePage />
                 ) : (
                   <Navigate to="/login" replace />
                 )
               }
             />
             <Route
-              path="/shop/:id"
+              path="/add-warranty"
               element={
-                isAuthenticated ? (
-                  <ShopDetails />
+                isAuthenticated && userData?.role === "user" ? (
+                  <AddingWarrantyUser />
                 ) : (
                   <Navigate to="/login" replace />
                 )
               }
             />
+
             {/* Service person routes */}
             <Route
               path="/service-home"
@@ -242,26 +283,9 @@ function App() {
                 )
               }
             />
-            <Route
-              path="/notifications"
-              element={
-                isAuthenticated ? (
-                  <Notifications />
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              }
-            />
-            <Route
-              path="/shop/conversation/:shopId/:userId"
-              element={
-                isAuthenticated && userData?.role === "service" ? (
-                  <ShopConversation />
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              }
-            />
+
+            {/* Catch-all route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
 

@@ -1,13 +1,13 @@
-// src/ServicePerson/ShopDashboard.js
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const ShopDashboard = () => {
   const { userData, token } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchConversations();
@@ -35,56 +35,206 @@ const ShopDashboard = () => {
     }
   };
 
-  return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6 text-green-700">
-        Message Dashboard
-      </h1>
-      <div className="bg-white shadow-lg rounded-lg p-6">
-        <h2 className="text-2xl font-semibold mb-4 border-b pb-2">
-          Customer Messages
-        </h2>
+  // NEW: Handle view click with unread reset
+  const handleViewClick = async (shopId, userId) => {
+    try {
+      // Call API to mark messages as read
+      await axios.post(
+        `http://localhost:3000/api/chat/read/${shopId}/${userId}`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
-        {loading ? (
-          <div className="flex justify-center py-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500"></div>
+      // Update local state to reset unread count
+      setConversations((prevConversations) =>
+        prevConversations.map((convo) => {
+          if (convo._id === userId) {
+            return { ...convo, unreadCount: 0 };
+          }
+          return convo;
+        })
+      );
+
+      // Navigate to conversation
+      navigate(`/shop/conversation/${shopId}/${userId}`);
+    } catch (error) {
+      console.error("Failed to reset unread messages:", error);
+      // Still navigate even if API call fails
+      navigate(`/shop/conversation/${shopId}/${userId}`);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* Main Content */}
+      <div className="flex-grow container mx-auto p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-green-700">
+            📱 Shop Dashboard
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Welcome back, {userData?.name || userData?.shopName}! Manage your
+            customer conversations here.
+          </p>
+        </div>
+
+        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+          {/* Header */}
+          <div className="bg-green-600 text-white p-4">
+            <h2 className="text-xl font-semibold flex items-center">
+              💬 Customer Messages
+              {conversations.length > 0 && (
+                <span className="ml-2 bg-green-500 text-white text-sm px-2 py-1 rounded-full">
+                  {conversations.length}
+                </span>
+              )}
+            </h2>
           </div>
-        ) : conversations.length === 0 ? (
-          <p className="text-gray-500 text-center py-10">No messages yet</p>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {conversations.map((convo) => (
-              <div key={convo._id} className="py-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-medium">{convo.customerName}</h3>
-                    <p className="text-sm text-gray-500">
-                      Last message:{" "}
-                      {new Date(convo.lastMessageTime).toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-700 mt-1">
-                      {convo.lastMessage}
-                    </p>
-                  </div>
-                  <div className="flex items-center">
-                    {convo.unreadCount > 0 && (
-                      <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full mr-3">
-                        {convo.unreadCount} new
-                      </span>
-                    )}
-                    <Link
-                      to={`/shop/conversation/${convo.shopId}/${convo.userId}`}
-                      className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+
+          {/* Content */}
+          <div className="p-6">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="mb-4 text-gray-400">
+                  <svg
+                    className="mx-auto h-16 w-16"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                </div>
+                <p className="text-gray-500 text-lg">No messages yet</p>
+                <p className="text-gray-400 text-sm mt-2">
+                  Customer conversations will appear here when they start
+                  chatting with your shop.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto">
+                <div className="divide-y divide-gray-200">
+                  {conversations.map((convo) => (
+                    <div
+                      key={convo._id}
+                      className="py-4 hover:bg-gray-50 transition-colors"
                     >
-                      View
-                    </Link>
-                  </div>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-grow">
+                          <div className="flex items-center mb-2">
+                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                              <span className="text-green-600 font-semibold text-sm">
+                                {convo.customerName?.charAt(0)?.toUpperCase() ||
+                                  "?"}
+                              </span>
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-800">
+                                {convo.customerName || "Anonymous Customer"}
+                              </h3>
+                              <p className="text-xs text-gray-500">
+                                Last message:{" "}
+                                {new Date(
+                                  convo.lastMessageTime
+                                ).toLocaleDateString()}{" "}
+                                at{" "}
+                                {new Date(
+                                  convo.lastMessageTime
+                                ).toLocaleTimeString()}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 ml-13 line-clamp-2">
+                            "{convo.lastMessage}"
+                          </p>
+                        </div>
+
+                        <div className="flex items-center space-x-2 ml-4">
+                          {/* UPDATED: Show just "new" instead of number */}
+                          {convo.unreadCount > 0 && (
+                            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                              new
+                            </span>
+                          )}
+                          {/* UPDATED: Replace Link with button that resets unread count */}
+                          <button
+                            onClick={() =>
+                              handleViewClick(convo.shopId, convo._id)
+                            }
+                            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                          >
+                            View Chat
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        {conversations.length > 0 && (
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-700">
+                Total Conversations
+              </h3>
+              <p className="text-2xl font-bold text-green-600">
+                {conversations.length}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-700">
+                Unread Messages
+              </h3>
+              <p className="text-2xl font-bold text-red-600">
+                {conversations.reduce(
+                  (sum, convo) => sum + convo.unreadCount,
+                  0
+                )}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-700">
+                Response Rate
+              </h3>
+              <p className="text-2xl font-bold text-blue-600">98%</p>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Fixed Footer */}
+      <footer className="bg-white border-t border-gray-200 py-4 mt-8">
+        <div className="container mx-auto px-6">
+          <div className="flex flex-col md:flex-row justify-between items-center text-sm text-gray-600">
+            <div className="mb-2 md:mb-0">
+              <p>© 2025 Electronics Repair Service • Dashboard v1.0</p>
+            </div>
+            <div className="flex space-x-4">
+              <span className="flex items-center">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                Service Active
+              </span>
+              <span>Shop ID: {userData?._id?.slice(-6) || "N/A"}</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

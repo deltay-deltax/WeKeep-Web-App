@@ -74,11 +74,14 @@ const ChatWidget = ({ shopId, shopName, onClose }) => {
   };
 
   return (
-    <div className="fixed bottom-20 right-6 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-10">
+    <div className="fixed bottom-4 right-4 w-80 bg-white rounded-lg shadow-xl border border-gray-300 z-50">
       {/* Chat header */}
-      <div className="bg-blue-600 text-white p-3 flex justify-between items-center">
-        <h3 className="font-bold">Chat with {shopName}</h3>
-        <button onClick={onClose} className="text-white">
+      <div className="bg-blue-600 text-white p-3 flex justify-between items-center rounded-t-lg">
+        <h3 className="font-bold text-sm">Chat with {shopName}</h3>
+        <button
+          onClick={onClose}
+          className="text-white hover:text-gray-200 transition-colors"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="h-5 w-5"
@@ -94,52 +97,56 @@ const ChatWidget = ({ shopId, shopName, onClose }) => {
         </button>
       </div>
 
-      {/* Chat messages */}
-      <div className="h-80 overflow-y-auto p-3 bg-gray-50">
-        {loading ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
-        ) : messages.length === 0 ? (
-          <p className="text-center text-gray-500 mt-10">
-            No messages yet. Start the conversation!
-          </p>
-        ) : (
-          messages.map((msg) => (
-            <div
-              key={msg._id}
-              className={`mb-2 p-2 rounded-lg max-w-[80%] ${
-                msg.senderId === userData?._id
-                  ? "bg-blue-500 text-white ml-auto"
-                  : "bg-gray-200 mr-auto"
-              }`}
-            >
-              <p>{msg.message}</p>
-              <p className="text-xs opacity-70">
-                {new Date(msg.timestamp).toLocaleTimeString()}
-              </p>
+      {/* Chat messages container */}
+      <div className="flex flex-col h-96">
+        <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
+          {loading ? (
+            <div className="flex justify-center items-center h-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
             </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          ) : messages.length === 0 ? (
+            <p className="text-center text-gray-500 mt-10 text-sm">
+              No messages yet. Start the conversation!
+            </p>
+          ) : (
+            messages.map((msg) => (
+              <div
+                key={msg._id}
+                className={`mb-3 p-3 rounded-lg max-w-[85%] ${
+                  msg.senderId === userData?._id
+                    ? "bg-blue-500 text-white ml-auto rounded-br-sm"
+                    : "bg-gray-200 text-gray-800 mr-auto rounded-bl-sm"
+                }`}
+              >
+                <p className="text-sm">{msg.message}</p>
+                <p className="text-xs opacity-70 mt-1">
+                  {new Date(msg.timestamp).toLocaleTimeString()}
+                </p>
+              </div>
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-      {/* Message input */}
-      <div className="p-3 border-t flex">
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 border rounded-l-lg p-2 focus:outline-none"
-          onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-        />
-        <button
-          onClick={sendMessage}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-r-lg"
-        >
-          Send
-        </button>
+        {/* Message input - Fixed footer */}
+        <div className="p-3 border-t bg-white rounded-b-lg">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type a message..."
+              className="flex-1 border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:border-blue-500"
+              onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+            />
+            <button
+              onClick={sendMessage}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+            >
+              Send
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

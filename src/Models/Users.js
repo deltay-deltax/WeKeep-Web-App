@@ -37,6 +37,30 @@ const userSchema = mongoose.Schema({
       return this.role === "service";
     },
   },
+  // Google Maps integration fields
+  googleMapsInfo: {
+    businessName: {
+      type: String,
+      required: function () {
+        return this.role === "service";
+      },
+    },
+    placeId: String,
+  },
+  location: {
+    lat: Number,
+    lng: Number,
+  },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  services: [
+    {
+      name: String,
+      price: String,
+    },
+  ],
 });
 
 const User = mongoose.model("Users", userSchema);
