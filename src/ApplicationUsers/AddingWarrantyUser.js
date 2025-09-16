@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
 
 const AddingWarrantyUser = () => {
+  const { token } = useAuth(); // Get authentication token
   const [formData, setFormData] = useState({
     modelName: "",
     modelNumber: "",
@@ -47,6 +49,7 @@ const AddingWarrantyUser = () => {
         {
           headers: {
             "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`, // Add authentication token
           },
         }
       );

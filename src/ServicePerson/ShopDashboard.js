@@ -12,7 +12,9 @@ const ShopDashboard = () => {
   useEffect(() => {
     fetchConversations();
     // Poll for new conversations every 30 seconds
-    const interval = setInterval(fetchConversations, 30000);
+    const interval = setInterval(() => {
+      fetchConversations();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -35,6 +37,7 @@ const ShopDashboard = () => {
     }
   };
 
+
   // NEW: Handle view click with unread reset
   const handleViewClick = async (shopId, userId) => {
     try {
@@ -47,7 +50,7 @@ const ShopDashboard = () => {
         }
       );
 
-      // Update local state to reset unread count
+      // Immediately update local state to reset unread count
       setConversations((prevConversations) =>
         prevConversations.map((convo) => {
           if (convo._id === userId) {
@@ -66,6 +69,21 @@ const ShopDashboard = () => {
     }
   };
 
+  // Add a function to refresh conversations when returning from chat
+  const refreshConversations = () => {
+    fetchConversations();
+  };
+
+  // Listen for focus events to refresh when user returns to dashboard
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchConversations();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Main Content */}
@@ -80,11 +98,11 @@ const ShopDashboard = () => {
           </p>
         </div>
 
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div className="bg-white shadow-lg rounded-lg overflow-hidden mb-8">
           {/* Header */}
           <div className="bg-green-600 text-white p-4">
             <h2 className="text-xl font-semibold flex items-center">
-              💬 Customer Messages
+              💬 Customer Inquiries
               {conversations.length > 0 && (
                 <span className="ml-2 bg-green-500 text-white text-sm px-2 py-1 rounded-full">
                   {conversations.length}
@@ -186,55 +204,29 @@ const ShopDashboard = () => {
           </div>
         </div>
 
-        {/* Quick Stats */}
-        {conversations.length > 0 && (
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-700">
-                Total Conversations
-              </h3>
-              <p className="text-2xl font-bold text-green-600">
-                {conversations.length}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-700">
-                Unread Messages
-              </h3>
-              <p className="text-2xl font-bold text-red-600">
-                {conversations.reduce(
-                  (sum, convo) => sum + convo.unreadCount,
-                  0
-                )}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-700">
-                Response Rate
-              </h3>
-              <p className="text-2xl font-bold text-blue-600">98%</p>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* Fixed Footer */}
-      <footer className="bg-white border-t border-gray-200 py-4 mt-8">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center text-sm text-gray-600">
-            <div className="mb-2 md:mb-0">
-              <p>© 2025 Electronics Repair Service • Dashboard v1.0</p>
-            </div>
-            <div className="flex space-x-4">
-              <span className="flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                Service Active
-              </span>
-              <span>Shop ID: {userData?._id?.slice(-6) || "N/A"}</span>
-            </div>
+        {/* Quick Stats */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-700">
+              Total Conversations
+            </h3>
+            <p className="text-2xl font-bold text-green-600">
+              {conversations.length}
+            </p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-700">
+              Unread Messages
+            </h3>
+            <p className="text-2xl font-bold text-blue-600">
+              {conversations.reduce((total, conv) => total + conv.unreadCount, 0)}
+            </p>
           </div>
         </div>
-      </footer>
+      </div>
+
+
     </div>
   );
 };

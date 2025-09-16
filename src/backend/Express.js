@@ -22,6 +22,7 @@ const ServiceUpdate = require("../Models/ServiceUpdate");
 const AddWarranty = require("../Models/AddWarranty");
 const ServiceHistory = require("../Models/ServiceHistoryEntry");
 const Notification = require("../Models/Notification");
+const ServiceRequest = require("../Models/ServiceRequest");
 
 // Import routes
 const authRouter = require("../Routes/AuthRoutes");
@@ -151,7 +152,35 @@ app.post("/api/chat/read/:shopId/:userId", authMiddleware, async (req, res) => {
       {
         shopId: shopId,
         userId: new mongoose.Types.ObjectId(userId),
-        senderId: { $nin: [shopId, new mongoose.Types.ObjectId(shopId)] },
+        senderId: { $ne: new mongoose.Types.ObjectId(shopId) },
+        read: false,
+      },
+      { $set: { read: true } }
+    );
+
+    console.log(`Marked ${result.modifiedCount} messages as read`);
+    res.json({
+      message: "Messages marked as read",
+      count: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error("Error marking messages as read:", error);
+    res.status(500).json({ message: "Failed to mark messages as read" });
+  }
+});
+
+// Mark messages as read for chat widget (single shop)
+app.post("/api/chat/read/:shopId", authMiddleware, async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    const currentUserId = req.user._id;
+
+    console.log(`Marking messages as read for shop ${shopId}, current user ${currentUserId}`);
+    const result = await Chat.updateMany(
+      {
+        shopId: shopId,
+        userId: currentUserId,
+        senderId: { $ne: currentUserId },
         read: false,
       },
       { $set: { read: true } }
@@ -390,7 +419,7 @@ app.get(
 // ===== WARRANTY MANAGEMENT ROUTES =====
 
 // POST route to handle warranty form submission (with phone/email)
-app.post("/api/warranty", upload.single("receipt"), async (req, res) => {
+app.post("/api/warranty", authMiddleware, upload.single("receipt"), async (req, res) => {
   const {
     modelName,
     modelNumber,
@@ -400,9 +429,11 @@ app.post("/api/warranty", upload.single("receipt"), async (req, res) => {
     phoneNumber,
   } = req.body;
   const receipt = req.file ? req.file.filename : "";
+  const userId = req.user._id; // Get userId from authenticated user
 
   try {
     const newWarranty = new AddWarranty({
+      userId, // Add userId to link warranty to user
       modelName,
       modelNumber,
       purchaseDate,
@@ -422,10 +453,11 @@ app.post("/api/warranty", upload.single("receipt"), async (req, res) => {
   }
 });
 
-// GET route to fetch all warranties
-app.get("/api/warranties", async (req, res) => {
+// GET route to fetch all warranties (with optional user filtering)
+app.get("/api/warranties", authMiddleware, async (req, res) => {
   try {
-    const warranties = await AddWarranty.find();
+    // If user is authenticated, only return their warranties
+    const warranties = await AddWarranty.find({ userId: req.user._id });
     res.json(warranties);
   } catch (error) {
     res
@@ -435,9 +467,12 @@ app.get("/api/warranties", async (req, res) => {
 });
 
 // GET route to fetch a warranty by ID
-app.get("/api/warranties/:id", async (req, res) => {
+app.get("/api/warranties/:id", authMiddleware, async (req, res) => {
   try {
-    const warranty = await AddWarranty.findById(req.params.id);
+    const warranty = await AddWarranty.findOne({ 
+      _id: req.params.id, 
+      userId: req.user._id // Ensure user can only access their own warranties
+    });
     if (!warranty) {
       return res.status(404).json({ message: "Warranty not found" });
     }
@@ -522,6 +557,57 @@ app.get("/api/service-history/:modelNumber", async (req, res) => {
 });
 
 // ===== SHOP DASHBOARD ROUTES =====
+// ===== ADMIN ROUTES =====
+
+// List pending service providers (unverified)
+app.get("/api/admin/pending-services", authMiddleware, async (req, res) => {
+  try {
+    // Optional: require admin role
+    // if (req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
+    const pending = await User.find({ role: 'service', isVerified: false })
+      .select('_id name email shopName address gstNo createdAt googleMapsInfo location');
+    res.json(pending);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch pending services' });
+  }
+});
+
+// Verify a service provider
+app.post("/api/admin/verify-service/:serviceId", authMiddleware, async (req, res) => {
+  try {
+    // Optional: require admin role
+    // if (req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
+    const { serviceId } = req.params;
+    const { approve = true, notes = '' } = req.body || {};
+    const updated = await User.findByIdAndUpdate(
+      serviceId,
+      { $set: { 
+        isVerified: !!approve,
+        adminStatus: approve ? 'approved' : 'rejected',
+        adminReviewedAt: new Date(),
+        adminNotes: notes
+      } },
+      { new: true }
+    ).select('_id name shopName isVerified');
+    if (!updated) return res.status(404).json({ message: 'Service not found' });
+    res.json({ message: approve ? 'Service approved' : 'Service rejected', service: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to verify service' });
+  }
+});
+
+// Admin: history of reviewed services
+app.get('/api/admin/review-history', authMiddleware, async (req, res) => {
+  try {
+    // if (req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
+    const reviewed = await User.find({ role: 'service', adminStatus: { $in: ['approved', 'rejected'] } })
+      .select('_id shopName name email isVerified adminStatus adminReviewedAt adminNotes');
+    res.json(reviewed);
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to fetch review history' });
+  }
+});
+
 
 // Get all conversations for a shop
 app.get("/api/shop/conversations", authMiddleware, async (req, res) => {
@@ -591,24 +677,32 @@ app.get("/api/shop/conversations", authMiddleware, async (req, res) => {
   }
 });
 
-// Get unread message count for shop
+// Get unread message count for shop (includes both chat messages and notifications)
 app.get("/api/shop/unread-count", authMiddleware, async (req, res) => {
   try {
     const shopId = req.user._id.toString();
     console.log(`[Shop] Fetching unread count for shop ${shopId}`);
 
-    // Only count messages where senderId is NOT the shop's ID
-    const count = await Chat.countDocuments({
+    // Count unread chat messages where senderId is NOT the shop's ID
+    const chatCount = await Chat.countDocuments({
       shopId,
       senderId: { $ne: shopId },
       read: false,
     });
 
-    console.log(`[Shop] Found ${count} unread messages`);
-    res.json({ count });
+    // Count unread notifications for the shop
+    const notificationCount = await Notification.countDocuments({
+      userId: shopId,
+      read: false,
+    });
+
+    const totalCount = chatCount + notificationCount;
+
+    console.log(`[Shop] Found ${chatCount} unread messages and ${notificationCount} unread notifications (total: ${totalCount})`);
+    res.json({ count: totalCount });
   } catch (error) {
-    console.error("Error counting unread messages:", error);
-    res.status(500).json({ message: "Failed to count unread messages" });
+    console.error("Error counting unread messages and notifications:", error);
+    res.status(500).json({ message: "Failed to count unread messages and notifications" });
   }
 });
 
@@ -651,6 +745,7 @@ app.get("/api/service-users", async (req, res) => {
     // Fetch all users with role: "service"
     const serviceUsers = await User.find({
       role: "service",
+      isVerified: true, // Only show verified services
     }).select(
       "_id name shopName address gstNo googleMapsInfo location services"
     );
@@ -878,22 +973,32 @@ app.get("/api/user/notifications", authMiddleware, async (req, res) => {
   }
 });
 
-// Get unread notification count
+// Get unread notification count (includes both chat messages and notifications)
 app.get("/api/user/notifications/unread", authMiddleware, async (req, res) => {
   try {
     const userId = req.user._id;
     console.log(`[Notifications] Fetching unread count for user ${userId}`);
 
-    const count = await Notification.countDocuments({
+    // Count unread notifications
+    const notificationCount = await Notification.countDocuments({
       userId,
       read: false,
     });
 
-    console.log(`[Notifications] Found ${count} unread notifications`);
-    res.json({ count });
+    // Count unread chat messages where the user is the recipient
+    const chatCount = await Chat.countDocuments({
+      userId,
+      senderId: { $ne: userId },
+      read: false,
+    });
+
+    const totalCount = notificationCount + chatCount;
+
+    console.log(`[Notifications] Found ${notificationCount} unread notifications and ${chatCount} unread messages (total: ${totalCount})`);
+    res.json({ count: totalCount });
   } catch (error) {
-    console.error("[Notifications] Error counting notifications:", error);
-    res.status(500).json({ message: "Failed to count notifications" });
+    console.error("[Notifications] Error counting notifications and messages:", error);
+    res.status(500).json({ message: "Failed to count notifications and messages" });
   }
 });
 
@@ -923,6 +1028,489 @@ app.post("/api/user/notifications/read", authMiddleware, async (req, res) => {
   }
 });
 
+// ===== SERVICE REQUEST ROUTES =====
+
+// Get user's service requests
+app.get("/api/requests/user", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    console.log(`[ServiceRequest] Fetching requests for user ${userId}`);
+
+    const requests = await ServiceRequest.find({ userId })
+      .populate('shopId', 'name shopName')
+      .sort({ createdAt: -1 });
+
+    console.log(`[ServiceRequest] Found ${requests.length} requests for user`);
+    res.json(requests);
+  } catch (error) {
+    console.error("Error fetching user requests:", error);
+    res.status(500).json({ message: "Failed to fetch requests" });
+  }
+});
+
+// Get shop's service requests (for service persons)
+app.get("/api/requests/shop", authMiddleware, async (req, res) => {
+  try {
+    const shopId = req.user._id;
+    console.log(`[ServiceRequest] Fetching requests for shop ${shopId}`);
+
+    const requests = await ServiceRequest.find({ shopId })
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 });
+
+    console.log(`[ServiceRequest] Found ${requests.length} requests for shop`);
+    res.json(requests);
+  } catch (error) {
+    console.error("Error fetching shop requests:", error);
+    res.status(500).json({ message: "Failed to fetch requests" });
+  }
+});
+
+// Update service request status (accept/reject/update)
+app.post("/api/requests/:requestId/update", authMiddleware, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { status, details, partsReplaced, totalCost, laborCost, partsCost, warrantyAfterRepair, notes } = req.body;
+    const servicePersonId = req.user._id;
+
+    console.log(`[ServiceRequest] Updating request ${requestId} with status: ${status}`);
+
+    // Find the service request
+    const serviceRequest = await ServiceRequest.findById(requestId);
+    if (!serviceRequest) {
+      return res.status(404).json({ message: "Service request not found" });
+    }
+
+    // Update the service request
+    const updateData = {
+      status,
+      updatedAt: new Date(),
+    };
+
+    // If status is accepted, set acceptedAt
+    if (status === 'accepted') {
+      updateData.acceptedAt = new Date();
+    }
+
+    // If status is completed, set completedAt
+    if (status === 'completed') {
+      updateData.completedAt = new Date();
+    }
+
+    // Add repair update details if provided
+    if (details || partsReplaced || totalCost !== undefined || laborCost !== undefined || partsCost !== undefined || warrantyAfterRepair || notes) {
+      updateData.repairUpdate = {
+        details,
+        partsReplaced,
+        totalCost: totalCost ? Number(totalCost) : undefined,
+        laborCost: laborCost ? Number(laborCost) : undefined,
+        partsCost: partsCost ? Number(partsCost) : undefined,
+        warrantyAfterRepair,
+        notes,
+        servicePersonName: req.user.name,
+        estimatedCompletionDate: status === 'in_progress' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : undefined, // 7 days from now
+      };
+    }
+
+    const updatedRequest = await ServiceRequest.findByIdAndUpdate(
+      requestId,
+      updateData,
+      { new: true }
+    ).populate('userId', 'name email');
+
+    // Create notification for the customer
+    let notificationTitle, notificationMessage;
+    
+    switch (status) {
+      case 'accepted':
+        notificationTitle = "Service Request Accepted";
+        notificationMessage = `Your service request for ${serviceRequest.modelName} has been accepted by ${req.user.name || req.user.shopName}`;
+        break;
+      case 'declined':
+        notificationTitle = "Service Request Declined";
+        notificationMessage = `Your service request for ${serviceRequest.modelName} has been declined by ${req.user.name || req.user.shopName}`;
+        break;
+      case 'in_progress':
+        notificationTitle = "Service In Progress";
+        notificationMessage = `Your ${serviceRequest.modelName} repair is now in progress`;
+        break;
+      case 'completed':
+        notificationTitle = "Service Completed";
+        notificationMessage = `Your ${serviceRequest.modelName} repair has been completed`;
+        break;
+      case 'payment_pending':
+        notificationTitle = "Payment Required";
+        notificationMessage = `Payment is required for your ${serviceRequest.modelName} repair. Total cost: ₹${totalCost || 'TBD'}`;
+        break;
+      default:
+        notificationTitle = "Service Request Updated";
+        notificationMessage = `Your service request for ${serviceRequest.modelName} has been updated`;
+    }
+
+    // Create notification for the customer
+    await createNotification(
+      serviceRequest.userId,
+      notificationTitle,
+      notificationMessage,
+      {
+        requestId: serviceRequest._id,
+        status: status,
+        type: 'service_request_update',
+        shopId: servicePersonId,
+        modelName: serviceRequest.modelName,
+        totalCost: totalCost
+      }
+    );
+
+    console.log(`[ServiceRequest] Request ${requestId} updated to status: ${status}`);
+    res.json({ message: "Service request updated successfully", request: updatedRequest });
+  } catch (error) {
+    console.error("Error updating service request:", error);
+    res.status(500).json({ message: "Failed to update service request" });
+  }
+});
+
+// Create new service request
+app.post("/api/requests", authMiddleware, async (req, res) => {
+  try {
+    const {
+      shopId,
+      deviceType,
+      brand,
+      modelName,
+      modelNumber,
+      problem,
+      description,
+      customerName,
+      customerPhone,
+      customerAddress,
+      userLocation,
+      priority,
+      estimatedCostRange
+    } = req.body;
+    const userId = req.user._id;
+
+    console.log(`[ServiceRequest] Creating new request from user ${userId} to shop ${shopId}`);
+
+    const newRequest = new ServiceRequest({
+      userId,
+      shopId,
+      deviceType,
+      brand,
+      modelName,
+      modelNumber,
+      problem,
+      description,
+      customerName,
+      customerPhone,
+      customerAddress,
+      userLocation,
+      priority,
+      estimatedCostRange,
+      status: 'pending'
+    });
+
+    await newRequest.save();
+
+    // Create notification for the shop
+    await createNotification(
+      shopId,
+      "New Service Request",
+      `You have a new service request for ${modelName} from ${customerName}`,
+      {
+        requestId: newRequest._id,
+        userId: userId,
+        shopId: shopId,
+        type: 'new_service_request',
+        modelName: modelName,
+        customerName: customerName
+      }
+    );
+
+    console.log(`[ServiceRequest] New request created: ${newRequest._id}`);
+    res.status(201).json({ message: "Service request created successfully", request: newRequest });
+  } catch (error) {
+    console.error("Error creating service request:", error);
+    res.status(500).json({ message: "Failed to create service request" });
+  }
+});
+
+// Mark service request as completed and set payment pending
+app.post("/api/requests/:requestId/complete", authMiddleware, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { amount } = req.body;
+    const servicePersonId = req.user._id;
+
+    console.log(`[ServiceRequest] Marking request ${requestId} as completed with amount: ${amount}`);
+
+    // Find the service request
+    const serviceRequest = await ServiceRequest.findById(requestId);
+    if (!serviceRequest) {
+      return res.status(404).json({ message: "Service request not found" });
+    }
+
+    // Update the service request to completed status and set payment pending
+    const updateData = {
+      status: 'payment_pending',
+      completedAt: new Date(),
+      updatedAt: new Date(),
+      payment: {
+        amount: Number(amount),
+        status: 'pending',
+        paymentMethod: null,
+        transactionId: null,
+        paidAt: null,
+        paymentNotes: null
+      }
+    };
+
+    const updatedRequest = await ServiceRequest.findByIdAndUpdate(
+      requestId,
+      updateData,
+      { new: true }
+    ).populate('userId', 'name email').populate('shopId', 'name shopName');
+
+    // Create notification for the customer about payment required
+    await createNotification(
+      serviceRequest.userId,
+      "Payment Required",
+      `Your ${serviceRequest.modelName} repair has been completed. Payment of ₹${amount} is required.`,
+      {
+        requestId: serviceRequest._id,
+        userId: serviceRequest.userId,
+        shopId: serviceRequest.shopId,
+        type: 'payment_required',
+        modelName: serviceRequest.modelName,
+        amount: amount
+      }
+    );
+
+    console.log(`[ServiceRequest] Request ${requestId} marked as completed, payment pending`);
+    res.json({ message: "Service request completed successfully", request: updatedRequest });
+  } catch (error) {
+    console.error("Error completing service request:", error);
+    res.status(500).json({ message: "Failed to complete service request" });
+  }
+});
+
+// Update payment status
+app.post("/api/requests/:requestId/payment", authMiddleware, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { paymentStatus, amount, paymentMethod, transactionId, paymentNotes } = req.body;
+    const userId = req.user._id;
+
+    console.log(`[Payment] Updating payment status for request ${requestId}: ${paymentStatus}`);
+
+    // Find the service request
+    const serviceRequest = await ServiceRequest.findById(requestId);
+    if (!serviceRequest) {
+      return res.status(404).json({ message: "Service request not found" });
+    }
+
+    // Update payment information
+    const updateData = {
+      'payment.status': paymentStatus,
+      'payment.paymentMethod': paymentMethod,
+      'payment.transactionId': transactionId,
+      'payment.paymentNotes': paymentNotes,
+      updatedAt: new Date(),
+    };
+
+    if (paymentStatus === 'paid') {
+      updateData['payment.paidAt'] = new Date();
+      updateData['payment.amount'] = amount;
+      updateData.status = 'paid'; // Update main status to paid
+    }
+
+    const updatedRequest = await ServiceRequest.findByIdAndUpdate(
+      requestId,
+      updateData,
+      { new: true }
+    ).populate('userId', 'name email').populate('shopId', 'name shopName');
+
+    // Create notifications
+    if (paymentStatus === 'paid') {
+      // Notify the shop that payment was received
+      await createNotification(
+        serviceRequest.shopId,
+        "Payment Received",
+        `Payment of ₹${amount} has been received for ${serviceRequest.modelName} repair from ${serviceRequest.customerName}`,
+        {
+          requestId: serviceRequest._id,
+          userId: serviceRequest.userId,
+          shopId: serviceRequest.shopId,
+          type: 'payment_received',
+          modelName: serviceRequest.modelName,
+          amount: amount,
+          customerName: serviceRequest.customerName
+        }
+      );
+
+      // Notify the customer that payment was successful
+      await createNotification(
+        serviceRequest.userId,
+        "Payment Successful",
+        `Your payment of ₹${amount} for ${serviceRequest.modelName} repair has been processed successfully`,
+        {
+          requestId: serviceRequest._id,
+          userId: serviceRequest.userId,
+          shopId: serviceRequest.shopId,
+          type: 'payment_successful',
+          modelName: serviceRequest.modelName,
+          amount: amount
+        }
+      );
+    } else if (paymentStatus === 'failed') {
+      // Notify the customer that payment failed
+      await createNotification(
+        serviceRequest.userId,
+        "Payment Failed",
+        `Your payment for ${serviceRequest.modelName} repair failed. Please try again.`,
+        {
+          requestId: serviceRequest._id,
+          userId: serviceRequest.userId,
+          shopId: serviceRequest.shopId,
+          type: 'payment_failed',
+          modelName: serviceRequest.modelName,
+          amount: amount
+        }
+      );
+    }
+
+    console.log(`[Payment] Payment status updated for request ${requestId}: ${paymentStatus}`);
+    res.json({ message: "Payment status updated successfully", request: updatedRequest });
+  } catch (error) {
+    console.error("Error updating payment status:", error);
+    res.status(500).json({ message: "Failed to update payment status" });
+  }
+});
+
+// ===== ANALYTICS ROUTES =====
+// Admin: All transactions (paid)
+app.get("/api/admin/transactions", authMiddleware, async (req, res) => {
+  try {
+    // Optional: admin check
+    // if (req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
+    const paidRequests = await ServiceRequest.find({ status: 'paid', 'payment.status': 'paid' })
+      .select('_id modelName modelNumber brand customerName payment shopId userId updatedAt createdAt')
+      .populate('shopId', 'shopName name email')
+      .populate('userId', 'name email');
+    res.json(paidRequests);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch transactions' });
+  }
+});
+
+// Get service person analytics
+app.get("/api/analytics/service", authMiddleware, async (req, res) => {
+  try {
+    const { timeRange = 'all' } = req.query;
+    const servicePersonId = req.user._id;
+    
+    console.log(`[Analytics] Fetching analytics for service person ${servicePersonId}, timeRange: ${timeRange}`);
+
+    // Calculate date filter based on timeRange
+    let dateFilter = {};
+    if (timeRange === 'month') {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      dateFilter.createdAt = { $gte: startOfMonth };
+    } else if (timeRange === 'week') {
+      const startOfWeek = new Date();
+      startOfWeek.setDate(startOfWeek.getDate() - 7);
+      startOfWeek.setHours(0, 0, 0, 0);
+      dateFilter.createdAt = { $gte: startOfWeek };
+    }
+
+    // Get all service requests for this service person
+    const requests = await ServiceRequest.find({ 
+      shopId: servicePersonId,
+      ...dateFilter
+    }).populate('userId', 'name email');
+
+    // Calculate analytics
+    const totalRequests = requests.length;
+    const completedRequests = requests.filter(r => r.status === 'paid').length;
+    const pendingRequests = requests.filter(r => ['pending', 'accepted', 'in_progress', 'payment_pending'].includes(r.status)).length;
+    
+    const totalEarnings = requests
+      .filter(r => r.status === 'paid' && r.payment?.amount)
+      .reduce((sum, r) => sum + (r.payment.amount || 0), 0);
+    
+    const averageEarning = completedRequests > 0 ? totalEarnings / completedRequests : 0;
+    const successRate = totalRequests > 0 ? Math.round((completedRequests / totalRequests) * 100) : 0;
+
+    // Get recent requests (last 10)
+    const recentRequests = requests
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 10);
+
+    // Get top problems
+    const problemStats = {};
+    requests.forEach(request => {
+      if (request.status === 'paid' && request.payment?.amount) {
+        if (!problemStats[request.problem]) {
+          problemStats[request.problem] = {
+            problem: request.problem,
+            count: 0,
+            totalEarnings: 0
+          };
+        }
+        problemStats[request.problem].count++;
+        problemStats[request.problem].totalEarnings += request.payment.amount;
+      }
+    });
+
+    const topProblems = Object.values(problemStats)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Get monthly earnings (last 6 months)
+    const monthlyEarnings = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const monthName = date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      
+      const monthRequests = requests.filter(r => {
+        const requestDate = new Date(r.createdAt);
+        return requestDate >= monthStart && requestDate <= monthEnd && r.status === 'paid' && r.payment?.amount;
+      });
+      
+      const monthEarnings = monthRequests.reduce((sum, r) => sum + (r.payment.amount || 0), 0);
+      
+      monthlyEarnings.push({
+        month: monthName,
+        earnings: monthEarnings
+      });
+    }
+
+    const analytics = {
+      totalEarnings,
+      totalRequests,
+      completedRequests,
+      pendingRequests,
+      averageEarning,
+      monthlyEarnings,
+      recentRequests,
+      topProblems,
+      successRate
+    };
+
+    console.log(`[Analytics] Analytics calculated for ${totalRequests} requests`);
+    res.json(analytics);
+  } catch (error) {
+    console.error("Error fetching service analytics:", error);
+    res.status(500).json({ message: "Failed to fetch analytics" });
+  }
+});
+
 // ===== SCHEDULED TASKS =====
 
 // Schedule warranty notification checks to run daily at 9 AM
@@ -930,6 +1518,19 @@ cron.schedule("0 9 * * *", () => {
   console.log("Running scheduled warranty expiration check...");
   checkAndSendWarrantyNotifications();
 });
+
+// Manual test endpoint for warranty notifications (for testing purposes)
+app.post("/api/test-warranty-notifications", authMiddleware, async (req, res) => {
+  try {
+    console.log("Manual warranty notification test triggered by user:", req.user._id);
+    await checkAndSendWarrantyNotifications();
+    res.json({ message: "Warranty notification check completed" });
+  } catch (error) {
+    console.error("Error in manual warranty notification test:", error);
+    res.status(500).json({ message: "Failed to run warranty notification check" });
+  }
+});
+
 
 // For testing: run once shortly after server starts
 setTimeout(() => {
@@ -972,3 +1573,4 @@ if (process.env.NODE_ENV === "production") {
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
 });
+

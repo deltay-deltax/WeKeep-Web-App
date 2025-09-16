@@ -13,6 +13,21 @@ const ShopDetails = () => {
   const [loading, setLoading] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [requestCreated, setRequestCreated] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [form, setForm] = useState({
+    deviceType: "",
+    brand: "",
+    modelName: "",
+    modelNumber: "",
+    problem: "",
+    description: "",
+    customerName: "",
+    customerPhone: "",
+    customerAddress: "",
+    priority: "medium",
+  });
 
   // Load Google Maps API
   const { isLoaded } = useJsApiLoader({
@@ -40,6 +55,13 @@ const ShopDetails = () => {
   };
 
   useEffect(() => {
+    // get user location for request
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => setUserLocation(null)
+    );
+
     const fetchShopDetails = async () => {
       try {
         setLoading(true);
@@ -97,6 +119,32 @@ const ShopDetails = () => {
 
     fetchShopDetails();
   }, [id, token]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateRequest = async (e) => {
+    e.preventDefault();
+    try {
+      setCreating(true);
+      const payload = {
+        ...form,
+        shopId: id,
+        userLocation: userLocation || undefined,
+      };
+      const res = await axios.post("http://localhost:3000/api/requests", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setRequestCreated(res.data.request);
+    } catch (err) {
+      console.error("Create request failed", err);
+      alert("Failed to create service request. Please check fields and try again.");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const toggleChat = () => {
     setShowChat(!showChat);
@@ -173,6 +221,69 @@ const ShopDetails = () => {
             Professional electronics repair service with experienced
             technicians. All repairs come with quality guarantee.
           </p>
+        </div>
+
+        {/* Request Service Form */}
+        <div className="bg-white border rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">Request Service</h2>
+          {requestCreated ? (
+            <div className="text-green-700 bg-green-50 border border-green-200 p-4 rounded">
+              Request created successfully. Request ID: {requestCreated._id}
+            </div>
+          ) : (
+            <form onSubmit={handleCreateRequest} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Device Type</label>
+                <input name="deviceType" value={form.deviceType} onChange={handleChange} required className="w-full p-2 border rounded" placeholder="Phone / Laptop / Tablet" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Brand</label>
+                <input name="brand" value={form.brand} onChange={handleChange} required className="w-full p-2 border rounded" placeholder="e.g., Apple, Samsung" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Model Name</label>
+                <input name="modelName" value={form.modelName} onChange={handleChange} required className="w-full p-2 border rounded" placeholder="iPhone 12" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Model Number</label>
+                <input name="modelNumber" value={form.modelNumber} onChange={handleChange} required className="w-full p-2 border rounded" placeholder="A2403" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm text-gray-700 mb-1">Problem</label>
+                <input name="problem" value={form.problem} onChange={handleChange} required className="w-full p-2 border rounded" placeholder="Screen cracked, battery drains fast" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm text-gray-700 mb-1">Description</label>
+                <textarea name="description" value={form.description} onChange={handleChange} rows="3" className="w-full p-2 border rounded" placeholder="Any extra details" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Your Name</label>
+                <input name="customerName" value={form.customerName} onChange={handleChange} required className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Phone</label>
+                <input name="customerPhone" value={form.customerPhone} onChange={handleChange} required className="w-full p-2 border rounded" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm text-gray-700 mb-1">Pickup Address</label>
+                <input name="customerAddress" value={form.customerAddress} onChange={handleChange} required className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Priority</label>
+                <select name="priority" value={form.priority} onChange={handleChange} className="w-full p-2 border rounded">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div className="md:col-span-2 flex justify-end">
+                <button type="submit" disabled={creating} className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded">
+                  {creating ? "Submitting..." : "Submit Request"}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* Chat button */}

@@ -39,27 +39,63 @@ const Notifications = () => {
     }
   };
 
-  // UPDATED: Direct navigation to chat conversation
+  // Smart navigation based on notification type
   const handleNotificationClick = (notification) => {
-    if (
-      notification.data &&
-      notification.data.shopId &&
-      notification.data.userId
-    ) {
-      if (userData.role === "service") {
-        // For service providers, navigate to conversation with the customer
-        navigate(
-          `/shop/conversation/${notification.data.shopId}/${notification.data.userId}`
-        );
-      } else {
-        // For customers, navigate to conversation with the shop
-        navigate(
-          `/shop/conversation/${notification.data.shopId}/${notification.data.userId}`
-        );
-      }
-    } else if (notification.data && notification.data.shopId) {
-      // Fallback to shop details page
-      navigate(`/shop/${notification.data.shopId}`);
+    if (!notification.data) return;
+
+    const { type, requestId, shopId, userId } = notification.data;
+
+    switch (type) {
+      case 'new_service_request':
+        // Navigate to service requests page for service providers
+        if (userData.role === "service") {
+          navigate("/service-requests");
+        } else {
+          navigate("/service-history");
+        }
+        break;
+      
+      case 'service_request_update':
+        // Navigate to service history for customers
+        if (userData.role === "user") {
+          navigate("/service-history");
+        } else {
+          navigate("/shop-dashboard");
+        }
+        break;
+      
+      case 'payment_received':
+        // For service providers, navigate to analytics to see earnings
+        if (userData.role === "service") {
+          navigate("/service-analytics");
+        } else {
+          navigate("/service-history");
+        }
+        break;
+      case 'payment_successful':
+      case 'payment_failed':
+      case 'payment_required':
+        // Navigate to service history to see payment status
+        navigate("/service-history");
+        break;
+      
+      case 'warranty_expiration':
+        // Navigate to warranty management page
+        navigate("/add-warranty");
+        break;
+      
+      default:
+        // For chat messages or unknown types, navigate to chat
+        if (shopId && userId) {
+          if (userData.role === "service") {
+            navigate(`/shop/conversation/${shopId}/${userId}`);
+          } else {
+            navigate(`/shop/conversation/${shopId}/${userId}`);
+          }
+        } else if (shopId) {
+          navigate(`/shop/${shopId}`);
+        }
+        break;
     }
   };
 
@@ -171,25 +207,6 @@ const Notifications = () => {
         )}
       </div>
 
-      {/* FIXED FOOTER */}
-      <footer className="bg-gray-800 text-white py-4 mt-8">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center text-sm">
-            <div className="mb-2 md:mb-0">
-              <p>
-                &copy; 2025 Electronics Repair Service • Notifications Center
-              </p>
-            </div>
-            <div className="flex space-x-4">
-              <span className="flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                Live Updates Active
-              </span>
-              <span>{notifications.length} Total Notifications</span>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

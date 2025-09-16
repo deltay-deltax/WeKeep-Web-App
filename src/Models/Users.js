@@ -55,6 +55,17 @@ const userSchema = mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  // Admin review metadata
+  adminStatus: {
+    type: String, // 'pending' | 'approved' | 'rejected'
+    default: 'pending',
+  },
+  adminReviewedAt: {
+    type: Date,
+  },
+  adminNotes: {
+    type: String,
+  },
   services: [
     {
       name: String,

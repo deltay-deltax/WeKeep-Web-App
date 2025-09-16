@@ -6,6 +6,7 @@ const nodemailer = require("nodemailer");
 const moment = require("moment");
 const twilio = require("twilio");
 const AddWarranty = require("../Models/AddWarranty");
+const { createNotification } = require("./NotificationUtils");
 
 // Configure services
 const transporter = nodemailer.createTransport({
@@ -34,6 +35,40 @@ async function sendSMSNotification(warranty, daysRemaining, expirationDate) {
     console.log(`SMS sent to ${warranty.phoneNumber}: ${message.sid}`);
   } catch (error) {
     console.error(`SMS failed for ${warranty.phoneNumber}:`, error.message);
+  }
+}
+
+async function sendInAppNotification(warranty, daysRemaining, expirationDate) {
+  try {
+    const timeMessage = {
+      60: "2 months",
+      30: "1 month", 
+      15: "15 days",
+      3: "3 days",
+    }[daysRemaining] || `${daysRemaining} days`;
+
+    const title = `Warranty Expiration Alert`;
+    const message = `Your ${warranty.modelName} (${warranty.modelNumber}) warranty expires in ${timeMessage} on ${expirationDate}.`;
+    
+    const notificationData = {
+      warrantyId: warranty._id,
+      modelName: warranty.modelName,
+      modelNumber: warranty.modelNumber,
+      expirationDate: expirationDate,
+      daysRemaining: daysRemaining,
+      type: 'warranty_expiration'
+    };
+
+    await createNotification(
+      warranty.userId,
+      title,
+      message,
+      notificationData
+    );
+    
+    console.log(`In-app notification created for user ${warranty.userId} - ${warranty.modelNumber}`);
+  } catch (error) {
+    console.error(`In-app notification failed for warranty ${warranty._id}:`, error.message);
   }
 }
 
@@ -70,6 +105,13 @@ async function checkAndSendWarrantyNotifications() {
             expirationDate.format("MMMM D, YYYY")
           );
 
+          // Send in-app notification
+          await sendInAppNotification(
+            warranty,
+            daysUntilExpiration,
+            expirationDate.format("MMMM D, YYYY")
+          );
+
           // Update record
           await AddWarranty.findByIdAndUpdate(warranty._id, {
             $push: {
@@ -80,7 +122,7 @@ async function checkAndSendWarrantyNotifications() {
             },
           });
 
-          console.log(`Processed notifications for ${warranty.modelNumber}`);
+          console.log(`Processed notifications (email, SMS, in-app) for ${warranty.modelNumber}`);
         }
       }
     }

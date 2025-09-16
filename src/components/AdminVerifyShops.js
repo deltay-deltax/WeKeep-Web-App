@@ -7,6 +7,7 @@ const AdminVerifyShops = () => {
   const { token } = useAuth();
   const [pendingShops, setPendingShops] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState([]);
 
   useEffect(() => {
     fetchPendingShops();
@@ -16,12 +17,18 @@ const AdminVerifyShops = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        "http://localhost:3000/api/admin/pending-shops",
+        "http://localhost:3000/api/admin/pending-services",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
       setPendingShops(response.data);
+      // Also fetch review history
+      const histRes = await axios.get(
+        "http://localhost:3000/api/admin/review-history",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setHistory(histRes.data || []);
     } catch (error) {
       console.error("Error fetching pending shops:", error);
     } finally {
@@ -32,8 +39,8 @@ const AdminVerifyShops = () => {
   const verifyShop = async (shopId, isApproved) => {
     try {
       await axios.post(
-        `http://localhost:3000/api/admin/verify-shop/${shopId}`,
-        { isApproved },
+        `http://localhost:3000/api/admin/verify-service/${shopId}`,
+        { approve: isApproved },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -70,13 +77,11 @@ const AdminVerifyShops = () => {
 
                   <div className="mt-2 p-3 bg-gray-100 rounded">
                     <p className="font-semibold">Google Maps Information:</p>
-                    <p>
-                      Business Name:{" "}
-                      {shop.googleMapsInfo?.businessName || "Not provided"}
-                    </p>
-                    <p>
-                      Place ID: {shop.googleMapsInfo?.placeId || "Not provided"}
-                    </p>
+                    <p>Business Name: {shop.googleMapsInfo?.businessName || '—'}</p>
+                    <p>Place ID: {shop.googleMapsInfo?.placeId || '—'}</p>
+                    {shop.location?.lat != null && shop.location?.lng != null && (
+                      <p>Location: {shop.location.lat}, {shop.location.lng}</p>
+                    )}
                   </div>
                 </div>
 
@@ -99,6 +104,43 @@ const AdminVerifyShops = () => {
           ))}
         </div>
       )}
+
+      {/* Review History */}
+      <div className="mt-10">
+        <h2 className="text-2xl font-semibold mb-4">Review History</h2>
+        {history.length === 0 ? (
+          <p className="text-gray-500">No reviews yet.</p>
+        ) : (
+          <div className="bg-white rounded shadow overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Date</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Shop</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Email</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {history.map(item => (
+                  <tr key={item._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm">{item.adminReviewedAt ? new Date(item.adminReviewedAt).toLocaleString() : '-'}</td>
+                    <td className="px-4 py-2 text-sm">{item.shopName}</td>
+                    <td className="px-4 py-2 text-sm">{item.email}</td>
+                    <td className="px-4 py-2 text-sm">
+                      <span className={`px-2 py-1 rounded text-xs ${item.adminStatus === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {item.adminStatus}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-sm">{item.adminNotes || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

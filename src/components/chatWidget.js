@@ -39,6 +39,23 @@ const ChatWidget = ({ shopId, shopName, onClose }) => {
         }
       );
       setMessages(response.data);
+      
+      // Mark messages as read after fetching
+      try {
+        await axios.post(
+          `http://localhost:3000/api/chat/read/${actualShopId}`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        console.log("Chat messages marked as read");
+      } catch (error) {
+        console.error("Error marking chat messages as read:", error);
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error("Error fetching chat history:", error);
@@ -74,13 +91,23 @@ const ChatWidget = ({ shopId, shopName, onClose }) => {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 w-80 bg-white rounded-lg shadow-xl border border-gray-300 z-50">
+    <div className="fixed bottom-4 right-4 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
       {/* Chat header */}
-      <div className="bg-blue-600 text-white p-3 flex justify-between items-center rounded-t-lg">
-        <h3 className="font-bold text-sm">Chat with {shopName}</h3>
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex justify-between items-center">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-semibold text-sm">Chat with {shopName}</h3>
+            <p className="text-xs text-blue-100">Online now</p>
+          </div>
+        </div>
         <button
           onClick={onClose}
-          className="text-white hover:text-gray-200 transition-colors"
+          className="text-white hover:text-gray-200 transition-colors p-1 rounded-full hover:bg-white hover:bg-opacity-20"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -99,29 +126,44 @@ const ChatWidget = ({ shopId, shopName, onClose }) => {
 
       {/* Chat messages container */}
       <div className="flex flex-col h-96">
-        <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
+        <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-gray-50 to-gray-100">
           {loading ? (
             <div className="flex justify-center items-center h-full">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              <div className="flex flex-col items-center space-y-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <p className="text-gray-500 text-sm">Loading messages...</p>
+              </div>
             </div>
           ) : messages.length === 0 ? (
-            <p className="text-center text-gray-500 mt-10 text-sm">
-              No messages yet. Start the conversation!
-            </p>
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <p className="text-gray-600 font-medium">Start a conversation!</p>
+              <p className="text-gray-500 text-sm mt-1">Send your first message below</p>
+            </div>
           ) : (
             messages.map((msg) => (
               <div
                 key={msg._id}
-                className={`mb-3 p-3 rounded-lg max-w-[85%] ${
-                  msg.senderId === userData?._id
-                    ? "bg-blue-500 text-white ml-auto rounded-br-sm"
-                    : "bg-gray-200 text-gray-800 mr-auto rounded-bl-sm"
-                }`}
+                className={`mb-4 flex ${msg.senderId === userData?._id ? 'justify-end' : 'justify-start'}`}
               >
-                <p className="text-sm">{msg.message}</p>
-                <p className="text-xs opacity-70 mt-1">
-                  {new Date(msg.timestamp).toLocaleTimeString()}
-                </p>
+                <div
+                  className={`max-w-[80%] p-3 rounded-2xl shadow-sm ${
+                    msg.senderId === userData?._id
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md"
+                      : "bg-white text-gray-800 border border-gray-200 rounded-bl-md"
+                  }`}
+                >
+                  <p className="text-sm leading-relaxed">{msg.message}</p>
+                  <p className={`text-xs mt-1 ${
+                    msg.senderId === userData?._id ? 'text-blue-100' : 'text-gray-500'
+                  }`}>
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
               </div>
             ))
           )}
@@ -129,21 +171,26 @@ const ChatWidget = ({ shopId, shopName, onClose }) => {
         </div>
 
         {/* Message input - Fixed footer */}
-        <div className="p-3 border-t bg-white rounded-b-lg">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              className="flex-1 border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:border-blue-500"
-              onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-            />
+        <div className="p-4 bg-white border-t border-gray-200">
+          <div className="flex gap-3">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type your message..."
+                className="w-full border border-gray-300 rounded-full px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+              />
+            </div>
             <button
               onClick={sendMessage}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+              disabled={!newMessage.trim()}
+              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 text-white p-3 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl disabled:shadow-none"
             >
-              Send
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
             </button>
           </div>
         </div>

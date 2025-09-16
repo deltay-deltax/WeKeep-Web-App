@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const AddWarrantySchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Users",
+      required: true,
+    },
     modelName: { type: String, required: true },
     modelNumber: { type: String, required: true },
     purchaseDate: { type: Date, required: true },

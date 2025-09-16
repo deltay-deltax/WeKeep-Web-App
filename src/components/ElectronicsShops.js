@@ -240,10 +240,11 @@ const ElectronicsShops = () => {
     : allShops;
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-4xl font-bold text-center text-blue-600 mb-8">
-        Nearby Electronics Shops
-      </h1>
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <div className="flex-grow container mx-auto p-6">
+        <h1 className="text-4xl font-bold text-center text-blue-600 mb-8">
+          Nearby Electronics Shops
+        </h1>
 
       <div className="mb-6">
         <input
@@ -461,6 +462,8 @@ const ElectronicsShops = () => {
           </div>
         </div>
       )}
+      </div>
+      
     </div>
   );
 };

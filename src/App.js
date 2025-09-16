@@ -8,11 +8,13 @@ import {
   Route,
   Routes,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 import AddingWarrantyUser from "./ApplicationUsers/AddingWarrantyUser";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import ServiceHomePage from "./ServicePerson/ServiceHomePage";
+import ServiceRequests from "./ServicePerson/ServiceRequests";
 import WarrantyDetails from "../src/testdata/WarrantyDetails";
 import ViewServiceHistory from "./ApplicationUsers/ViewServiceHistory";
 import RoleSelectionPage from "./components/RoleSelectionPage";
@@ -27,10 +29,18 @@ import RegisterRoleSelection from "./components/RegisterRoleSelection";
 import ServiceSignUpPage from "./Logins/ServiceSignUpPage";
 import ShopConversation from "./ServicePerson/ShopConversation";
 import ShopDashboard from "./ServicePerson/ShopDashboard";
+import ServiceAnalytics from "./ServicePerson/ServiceAnalytics";
 import Notifications from "./ApplicationUsers/Notifications";
+import AdminVerifyShops from "./components/AdminVerifyShops";
+import AdminDashboard from "./components/AdminDashboard";
+import AdminAnalytics from "./components/AdminAnalytics";
 
-function App() {
+function AppContent() {
   const { isAuthenticated, userData, loading } = useAuth(); // Add loading
+  const location = useLocation();
+  
+  // Show footer on all pages
+  const showFooter = true;
 
   // Show loading spinner while auth is resolving
   if (loading) {
@@ -43,10 +53,9 @@ function App() {
 
   return (
     <div className="bg-gray-50 min-h-screen font-sans text-gray-900">
-      <Router>
-        <Header />
+      <Header />
 
-        <div className="px-6 md:px-12 lg:px-24 py-6">
+      <div className="px-6 md:px-12 lg:px-24 py-6">
           <Routes>
             {/* Public routes */}
             <Route
@@ -54,6 +63,8 @@ function App() {
               element={
                 !isAuthenticated ? (
                   <LandingPage />
+                ) : userData?.role === "admin" ? (
+                  <Navigate to="/admin" replace />
                 ) : userData?.role === "user" ? (
                   <Navigate to="/uhomepage" replace />
                 ) : userData?.role === "service" ? (
@@ -243,18 +254,19 @@ function App() {
                 )
               }
             />
+            {/* Removed manual problem reporting route for production flow */}
             <Route
-              path="/service/report-problem"
+              path="/service/update"
               element={
                 isAuthenticated && userData?.role === "service" ? (
-                  <ProblemReportForm />
+                  <ServiceUpdateForm />
                 ) : (
                   <Navigate to="/login" replace />
                 )
               }
             />
             <Route
-              path="/service/update"
+              path="/service/update/:requestId"
               element={
                 isAuthenticated && userData?.role === "service" ? (
                   <ServiceUpdateForm />
@@ -283,15 +295,74 @@ function App() {
                 )
               }
             />
+            <Route
+              path="/service-requests"
+              element={
+                isAuthenticated && userData?.role === "service" ? (
+                  <ServiceRequests />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/service-analytics"
+              element={
+                isAuthenticated && userData?.role === "service" ? (
+                  <ServiceAnalytics />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+
+            {/* Admin - simple access gate: role must be 'admin' */}
+            <Route
+              path="/admin"
+              element={
+                isAuthenticated && userData?.role === "admin" ? (
+                  <AdminDashboard />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/verify-services"
+              element={
+                isAuthenticated && userData?.role === "admin" ? (
+                  <AdminVerifyShops />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/analytics"
+              element={
+                isAuthenticated && userData?.role === "admin" ? (
+                  <AdminAnalytics />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
 
-        <Footer />
-      </Router>
+      {showFooter && <Footer />}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 
