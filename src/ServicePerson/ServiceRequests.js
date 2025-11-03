@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import axios from "axios";
+import api from "../Utils/api";
 import { useNavigate } from "react-router-dom";
 import PaymentAmountModal from "../components/PaymentAmountModal";
 
@@ -27,7 +27,7 @@ const ServiceRequests = () => {
   const fetchRequests = async () => {
     try {
       setRequestsLoading(true);
-      const res = await axios.get("http://localhost:3000/api/requests/shop", {
+      const res = await api.get("/api/requests/shop", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRequests(res.data || []);
@@ -41,8 +41,8 @@ const ServiceRequests = () => {
   const acceptRequest = async (id) => {
     try {
       setUpdatingId(id);
-      await axios.post(
-        `http://localhost:3000/api/requests/${id}/update`,
+      await api.post(
+        `/api/requests/${id}/update`,
         { status: 'accepted' },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -57,8 +57,8 @@ const ServiceRequests = () => {
   const declineRequest = async (id) => {
     try {
       setUpdatingId(id);
-      await axios.post(
-        `http://localhost:3000/api/requests/${id}/update`,
+      await api.post(
+        `/api/requests/${id}/update`,
         { status: 'declined' },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -77,8 +77,8 @@ const ServiceRequests = () => {
   const markCompleted = async (amount) => {
     try {
       setUpdatingId(selectedRequestId);
-      await axios.post(
-        `http://localhost:3000/api/requests/${selectedRequestId}/complete`,
+      await api.post(
+        `/api/requests/${selectedRequestId}/complete`,
         { amount },
         { headers: { Authorization: `Bearer ${token}` } }
       );

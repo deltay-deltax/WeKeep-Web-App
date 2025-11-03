@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import axios from "axios";
+import api from "../Utils/api";
 import PaymentAmountModal from "../components/PaymentAmountModal";
 
 const ServiceHomePage = () => {
@@ -29,12 +29,9 @@ const ServiceHomePage = () => {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:3000/api/shop/unread-count",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await api.get("/api/shop/unread-count", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setUnreadCount(response.data.count);
     } catch (error) {
       console.error("Error fetching unread count:", error);
@@ -44,7 +41,7 @@ const ServiceHomePage = () => {
   const fetchRequests = async () => {
     try {
       setRequestsLoading(true);
-      const res = await axios.get("http://localhost:3000/api/requests/shop", {
+      const res = await api.get("/api/requests/shop", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRequests(res.data || []);
@@ -58,8 +55,8 @@ const ServiceHomePage = () => {
   const acceptRequest = async (id) => {
     try {
       setUpdatingId(id);
-      await axios.post(
-        `http://localhost:3000/api/requests/${id}/update`,
+      await api.post(
+        `/api/requests/${id}/update`,
         { status: 'accepted' },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -74,8 +71,8 @@ const ServiceHomePage = () => {
   const declineRequest = async (id) => {
     try {
       setUpdatingId(id);
-      await axios.post(
-        `http://localhost:3000/api/requests/${id}/update`,
+      await api.post(
+        `/api/requests/${id}/update`,
         { status: 'declined' },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -94,8 +91,8 @@ const ServiceHomePage = () => {
   const markCompleted = async (amount) => {
     try {
       setUpdatingId(selectedRequestId);
-      await axios.post(
-        `http://localhost:3000/api/requests/${selectedRequestId}/complete`,
+      await api.post(
+        `/api/requests/${selectedRequestId}/complete`,
         { amount },
         { headers: { Authorization: `Bearer ${token}` } }
       );

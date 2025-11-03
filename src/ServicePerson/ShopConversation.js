@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import axios from "axios";
+import api from "../Utils/api";
 
 const ShopConversation = () => {
   const { shopId, userId } = useParams();
@@ -39,8 +39,8 @@ const ShopConversation = () => {
     const fetchMessages = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(
-          `http://localhost:3000/api/chat/${shopId}/${userId}`,
+        const response = await api.get(
+          `/api/chat/${shopId}/${userId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -50,8 +50,8 @@ const ShopConversation = () => {
 
         // Mark messages as read
         try {
-          await axios.post(
-            `http://localhost:3000/api/chat/read/${shopId}/${userId}`,
+          await api.post(
+            `/api/chat/read/${shopId}/${userId}`,
             {},
             {
               headers: { Authorization: `Bearer ${token}` },
@@ -83,8 +83,8 @@ const ShopConversation = () => {
     if (!newMessage.trim() || loading) return;
 
     try {
-      await axios.post(
-        `http://localhost:3000/api/chat/${shopId}/${userId}`,
+      await api.post(
+        `/api/chat/${shopId}/${userId}`,
         { message: newMessage },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -92,8 +92,8 @@ const ShopConversation = () => {
       );
       setNewMessage("");
       // Refetch messages after sending
-      const response = await axios.get(
-        `http://localhost:3000/api/chat/${shopId}/${userId}`,
+      const response = await api.get(
+        `/api/chat/${shopId}/${userId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

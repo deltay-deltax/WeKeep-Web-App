@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../Utils/api";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext"; // Import auth context
 
@@ -26,7 +26,7 @@ const ProblemReportForm = () => {
     setLoading(true);
     try {
       // Include the authorization token in the request headers
-      await axios.post("http://localhost:3000/api/problem-report", form, {
+      await api.post("/api/problem-report", form, {
         headers: {
           Authorization: `Bearer ${token}`, // Add the token here
         },

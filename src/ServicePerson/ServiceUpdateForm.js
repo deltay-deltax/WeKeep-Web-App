@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../Utils/api";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext"; // Import auth context
 
@@ -41,7 +41,7 @@ const ServiceUpdateForm = () => {
           setLoadingInitial(false);
           return;
         }
-        const res = await axios.get(`http://localhost:3000/api/requests/${requestId}`, {
+        const res = await api.get(`/api/requests/${requestId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const r = res.data;
@@ -82,7 +82,7 @@ const ServiceUpdateForm = () => {
         throw new Error("No requestId provided in route");
       }
 
-      await axios.post(`http://localhost:3000/api/requests/${requestId}/update`, payload, {
+      await api.post(`/api/requests/${requestId}/update`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

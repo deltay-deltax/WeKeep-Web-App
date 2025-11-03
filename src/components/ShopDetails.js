@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ChatWidget from "../components/chatWidget";
-import axios from "axios";
+import api from "../Utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 
@@ -92,8 +92,8 @@ const ShopDetails = () => {
         }
 
         // Fetch real shop data
-        const response = await axios.get(
-          `http://localhost:3000/api/shop/${id}`,
+        const response = await api.get(
+          `/api/shop/${id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -134,7 +134,7 @@ const ShopDetails = () => {
         shopId: id,
         userLocation: userLocation || undefined,
       };
-      const res = await axios.post("http://localhost:3000/api/requests", payload, {
+      const res = await api.post("/api/requests", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRequestCreated(res.data.request);

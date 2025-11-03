@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import axios from "axios";
+import api from "../Utils/api";
 import shopUserMapping from "../Utils/ShopUserMapping";
 
 const ChatWidget = ({ shopId, shopName, onClose }) => {
@@ -30,8 +30,8 @@ const ChatWidget = ({ shopId, shopName, onClose }) => {
   const fetchChatHistory = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `http://localhost:3000/api/chat/${actualShopId}`,
+      const response = await api.get(
+        `/api/chat/${actualShopId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -42,8 +42,8 @@ const ChatWidget = ({ shopId, shopName, onClose }) => {
       
       // Mark messages as read after fetching
       try {
-        await axios.post(
-          `http://localhost:3000/api/chat/read/${actualShopId}`,
+        await api.post(
+          `/api/chat/read/${actualShopId}`,
           {},
           {
             headers: {
@@ -67,8 +67,8 @@ const ChatWidget = ({ shopId, shopName, onClose }) => {
     if (!newMessage.trim()) return;
 
     try {
-      await axios.post(
-        `http://localhost:3000/api/chat/${actualShopId}`,
+      await api.post(
+        `/api/chat/${actualShopId}`,
         {
           message: newMessage,
           shopName: shopName, // Include shop name for notifications

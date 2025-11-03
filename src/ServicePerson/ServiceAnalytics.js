@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import api from "../Utils/api";
 
 const ServiceAnalytics = () => {
   const { token } = useAuth();
@@ -25,7 +25,7 @@ const ServiceAnalytics = () => {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:3000/api/analytics/service?timeRange=${timeRange}`, {
+      const response = await api.get(`/api/analytics/service?timeRange=${timeRange}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAnalytics(response.data);

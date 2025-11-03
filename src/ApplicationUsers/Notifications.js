@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import axios from "axios";
+import api from "../Utils/api";
 import { useNavigate } from "react-router-dom";
 
 const Notifications = () => {
@@ -16,8 +16,8 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        "http://localhost:3000/api/user/notifications",
+      const response = await api.get(
+        "/api/user/notifications",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -26,8 +26,8 @@ const Notifications = () => {
       setLoading(false);
 
       // Mark notifications as read
-      await axios.post(
-        "http://localhost:3000/api/user/notifications/read",
+      await api.post(
+        "/api/user/notifications/read",
         {},
         {
           headers: { Authorization: `Bearer ${token}` },

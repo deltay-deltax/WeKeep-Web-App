@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import axios from "axios";
+import api from "../Utils/api";
 import { useNavigate } from "react-router-dom";
 
 const ShopDashboard = () => {
@@ -21,8 +21,8 @@ const ShopDashboard = () => {
   const fetchConversations = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        "http://localhost:3000/api/shop/conversations",
+      const response = await api.get(
+        "/api/shop/conversations",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -42,8 +42,8 @@ const ShopDashboard = () => {
   const handleViewClick = async (shopId, userId) => {
     try {
       // Call API to mark messages as read
-      await axios.post(
-        `http://localhost:3000/api/chat/read/${shopId}/${userId}`,
+      await api.post(
+        `/api/chat/read/${shopId}/${userId}`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../Utils/api";
 import { useAuth } from "../contexts/AuthContext";
 
 const AddingWarrantyUser = () => {
@@ -43,13 +43,13 @@ const AddingWarrantyUser = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post(
-        "http://localhost:3000/api/warranty",
+      const response = await api.post(
+        "/api/warranty",
         data,
         {
           headers: {
+            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`, // Add authentication token
           },
         }
       );

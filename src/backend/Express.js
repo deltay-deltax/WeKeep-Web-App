@@ -35,13 +35,22 @@ const { createNotification } = require("../Utils/NotificationUtils");
 const dataBase = require("./Database");
 
 const app = express();
+app.set("trust proxy", 1);
 
 // Setup uploads directory
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
 // Middleware
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || "")
+  .split(",")
+  .filter(Boolean);
+app.use(
+  cors({
+    origin: allowedOrigins.length ? allowedOrigins : true,
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use("/api/auth", authRouter);
 
@@ -63,7 +72,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, "seckretKey213");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "seckretKey213");
     const user = await User.findById(decoded._id || decoded.id);
 
     if (!user) {
@@ -117,7 +126,7 @@ app.post("/api/auth/service-signup", async (req, res) => {
     await newUser.save();
 
     // Create token
-    const token = jwt.sign({ _id: newUser._id }, "seckretKey213", {
+    const token = jwt.sign({ _id: newUser._id }, process.env.JWT_SECRET || "seckretKey213", {
       expiresIn: "100d",
     });
 
@@ -1569,8 +1578,13 @@ if (process.env.NODE_ENV === "production") {
 // Get shop details by ID
 
 // ===== SERVER STARTUP =====
+// Health check endpoint for Railway
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
 
-app.listen(3000, () => {
-  console.log("Server is running on port 3000");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
 

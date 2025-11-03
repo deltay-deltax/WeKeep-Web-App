@@ -41,7 +41,7 @@ exports.SignUp = async (req, res, next) => {
     const newUser = await User.create(userData);
 
     // Assigning the JSON Web Token to the User for the authentication
-    const token = jwt.sign({ _id: newUser._id }, "seckretKey213", {
+    const token = jwt.sign({ _id: newUser._id }, process.env.JWT_SECRET || "seckretKey213", {
       expiresIn: "100d",
     });
 
@@ -85,7 +85,7 @@ exports.Login = async (req, res, next) => {
       return next(new createError("Invalid UserName or Password", 401));
     }
 
-    const token = jwt.sign({ _id: user._id }, "seckretKey213", {
+    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET || "seckretKey213", {
       expiresIn: "100d",
     });
 

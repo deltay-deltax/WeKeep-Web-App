@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../Utils/api";
 import { useAuth } from "../contexts/AuthContext";
 
 const AdminAnalytics = () => {
@@ -11,7 +11,7 @@ const AdminAnalytics = () => {
     const fetchTx = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("http://localhost:3000/api/admin/transactions", {
+        const res = await api.get("/api/admin/transactions", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setTransactions(res.data || []);

@@ -1,6 +1,6 @@
 // Create a new file: src/components/AdminVerifyShops.js
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../Utils/api";
 import { useAuth } from "../contexts/AuthContext";
 
 const AdminVerifyShops = () => {
@@ -16,16 +16,16 @@ const AdminVerifyShops = () => {
   const fetchPendingShops = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        "http://localhost:3000/api/admin/pending-services",
+      const response = await api.get(
+        "/api/admin/pending-services",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
       setPendingShops(response.data);
       // Also fetch review history
-      const histRes = await axios.get(
-        "http://localhost:3000/api/admin/review-history",
+      const histRes = await api.get(
+        "/api/admin/review-history",
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setHistory(histRes.data || []);
@@ -38,8 +38,8 @@ const AdminVerifyShops = () => {
 
   const verifyShop = async (shopId, isApproved) => {
     try {
-      await axios.post(
-        `http://localhost:3000/api/admin/verify-service/${shopId}`,
+      await api.post(
+        `/api/admin/verify-service/${shopId}`,
         { approve: isApproved },
         {
           headers: { Authorization: `Bearer ${token}` },

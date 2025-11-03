@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../Utils/api";
 import { useAuth } from "../contexts/AuthContext";
 
 const ServiceHistoryViewer = () => {
@@ -14,8 +14,8 @@ const ServiceHistoryViewer = () => {
     setLoading(true);
     setError("");
     try {
-      const response = await axios.get(
-        "http://localhost:3000/api/requests/shop",
+      const response = await api.get(
+        "/api/requests/shop",
         {
           headers: {
             Authorization: `Bearer ${token}`,

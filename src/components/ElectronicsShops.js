@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import api from "../Utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import {
   GoogleMap,
@@ -31,14 +31,14 @@ const ElectronicsShops = () => {
   const fetchNearbyGoogleShops = async (location) => {
     try {
       setNearbyLoading(true);
-      const response = await axios.get(
-        `http://localhost:3000/api/nearby-shops?lat=${location.lat}&lng=${location.lng}`
+      const response = await api.get(
+        `/api/nearby-shops?lat=${location.lat}&lng=${location.lng}`
       );
       const googleShops = Array.isArray(response.data) ? response.data : [];
 
       // Get all MongoDB service users for verification
-      const mongoShops = await axios.get(
-        `http://localhost:3000/api/service-users?lat=${location.lat}&lng=${location.lng}`,
+      const mongoShops = await api.get(
+        `/api/service-users?lat=${location.lat}&lng=${location.lng}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

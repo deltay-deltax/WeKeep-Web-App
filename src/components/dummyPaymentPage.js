@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from "../Utils/api";
 import { useAuth } from '../contexts/AuthContext';
 
 const DummyPaymentPage = () => {
@@ -25,7 +25,7 @@ const DummyPaymentPage = () => {
     const fetchServiceRequest = async () => {
       if (requestId && token) {
         try {
-          const response = await axios.get(`http://localhost:3000/api/requests/user`, {
+          const response = await api.get(`/api/requests/user`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const request = response.data.find(req => req._id === requestId);
@@ -52,11 +52,13 @@ const DummyPaymentPage = () => {
         // Simulate processing delay for better UX
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        await axios.post(`http://localhost:3000/api/requests/${requestId}/payment`, {
+        await api.post(`/api/requests/${requestId}/payment`, {
           paymentStatus: 'paid',
           paymentMethod: paymentMethod || 'dummy',
           amount: serviceRequest?.payment?.amount || serviceRequest?.repairUpdate?.totalCost,
-        }, { headers: { Authorization: `Bearer ${token}` } });
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
       }
     } catch (e) {
       console.error('Failed to update payment', e);

@@ -3,7 +3,7 @@ import { FaUserCircle, FaArrowLeft } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import axios from "axios";
+import api from "../Utils/api";
 
 const Header = () => {
   const navigate = useNavigate();
@@ -30,10 +30,10 @@ const Header = () => {
       // Use different endpoints based on user role
       const endpoint =
         userData?.role === "service"
-          ? "http://localhost:3000/api/shop/unread-count"
-          : "http://localhost:3000/api/user/notifications/unread";
+          ? "/api/shop/unread-count"
+          : "/api/user/notifications/unread";
 
-      const response = await axios.get(endpoint, {
+      const response = await api.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUnreadCount(response.data.count);

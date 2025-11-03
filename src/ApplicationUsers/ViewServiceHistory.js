@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../Utils/api";
 import { useAuth } from "../contexts/AuthContext";
 
 const ViewServiceHistory = () => {
@@ -18,7 +18,7 @@ const ViewServiceHistory = () => {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:3000/api/requests/user", {
+      const res = await api.get("/api/requests/user", {
         headers: { Authorization: `Bearer ${token}` },
       });
       // Ensure we always set an array, even if the API returns unexpected data
